@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kafka-exporter
+spec:
+  staticConfigs:
+    - targets:
+        - 192.0.2.57:9308
+        - 192.0.2.58:9308
+        - 192.0.2.59:9308
+      labels:
+        cluster: fra
+        component: kafka-exporter
+  metricsPath: /metrics

@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io/
+      targetRevision: 1.12.1
+      helm:
+        releaseName: longhorn
+        valueFiles:
+          - $values/gitops/values/storage/longhorn.yaml
+    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

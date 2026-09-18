@@ -1,0 +1,16 @@
+---
+# Orchestrator for the k8s_common role — applied to every K8s node (control plane and workers).
+# Steps run in order: prepare the host, install the container runtime, then install the
+# Kubernetes packages.
+#
+# import_tasks (not include_tasks) is used so role-level tags propagate into the child task files.
+# Docs: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+- name: Prepare host kernel and networking
+  ansible.builtin.import_tasks: system_prep.yml
+
+- name: Install containerd
+  ansible.builtin.import_tasks: install_containerd.yml
+
+- name: Install kubelet, kubeadm, and kubectl
+  ansible.builtin.import_tasks: install_kube_packages.yml

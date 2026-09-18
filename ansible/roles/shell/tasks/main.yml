@@ -1,0 +1,83 @@
+---
+- name: Ensure shell config directory exists in /etc/skel
+  ansible.builtin.file:
+    path: "{{ shell_files_dest }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy shell config files to /etc/skel
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ shell_files_dest }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - bash-interactive-vars
+    - bash-interactive-aliases
+    - bash-interactive-ps1
+
+- name: Deploy shell config files to managed user homes
+  ansible.builtin.copy:
+    src: "{{ item[1] }}"
+    dest: "/home/{{ item[0].name }}/.config/bash/{{ item[1] }}"
+    owner: "{{ item[0].name }}"
+    group: "{{ item[0].group }}"
+    mode: "0644"
+  loop: >-
+    {{ managed_users | default([])
+       | product(['bash-interactive-vars',
+                  'bash-interactive-aliases',
+                  'bash-interactive-ps1']) | list }}
+
+- name: Ensure .bashrc sources shell config files
+  ansible.builtin.blockinfile:
+    path: "/home/{{ item.name }}/.bashrc"
+    create: true
+    mode: "0644"
+    marker: "{{ shell_bashrc_block_marker }}"
+    block: |
+      [ -f ~/.config/bash/bash-interactive-vars ]    && . ~/.config/bash/bash-interactive-vars
+      [ -f ~/.config/bash/bash-interactive-aliases ] && . ~/.config/bash/bash-interactive-aliases
+      [ -f ~/.config/bash/bash-interactive-ps1 ]     && . ~/.config/bash/bash-interactive-ps1
+  loop: "{{ managed_users | default([]) }}"
+
+- name: Set vim as the system default editor
+  community.general.alternatives:
+    name: editor
+    path: /usr/bin/vim.basic
+  failed_when: false
+
+- name: Ensure vim templates directory exists in managed user homes
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}/.vim/templates"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.group }}"
+    mode: "0755"
+  loop: "{{ managed_users | default([]) }}"
+
+- name: Deploy .vimrc to managed user homes
+  ansible.builtin.copy:
+    src: vimrc
+    dest: "/home/{{ item.name }}/.vimrc"
+    owner: "{{ item.name }}"
+    group: "{{ item.group }}"
+    mode: "0644"
+  loop: "{{ managed_users | default([]) }}"
+
+- name: Deploy vim skeleton templates to managed user homes
+  ansible.builtin.copy:
+    src: "vim-templates/{{ item[1] }}"
+    dest: "/home/{{ item[0].name }}/.vim/templates/{{ item[1] }}"
+    owner: "{{ item[0].name }}"
+    group: "{{ item[0].group }}"
+    mode: "0644"
+  loop: >-
+    {{ managed_users | default([])
+        | product(['skeleton.bash',
+                   'skeleton.sh',
+                   'skeleton.py',
+                   'skeleton.json']) | list }}

@@ -1,0 +1,67 @@
+---
+# Kafka runs as a simple KRaft cluster for the learning environment. The shared
+# cluster ID is not secret and must remain unchanged after the first format.
+kafka_user: kafka
+kafka_group: kafka
+kafka_java_package: openjdk-21-jre-headless
+kafka_version: "4.3.1"
+kafka_scala_version: "2.13"
+kafka_download_url: "https://downloads.apache.org/kafka/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+kafka_download_checksum_url: "{{ kafka_download_url }}.sha512"
+kafka_install_root: /opt
+kafka_install_path: "{{ kafka_install_root }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}"
+kafka_current_path: "{{ kafka_install_root }}/kafka"
+kafka_config_path: /etc/kafka
+kafka_data_path: /var/lib/kafka
+kafka_log_path: /var/log/kafka
+# Generate a unique Kafka cluster ID for each deployment; this public example
+# uses a placeholder so it cannot identify or affect the private cluster.
+kafka_cluster_id: AAAAAAAAAAAAAAAAAAAAAA
+kafka_client_port: 9092
+kafka_controller_port: 9093
+kafka_inter_broker_port: 9094
+kafka_sasl_mechanism: SCRAM-SHA-512
+kafka_admin_user: kafka-admin
+kafka_admin_password: "{{ lookup('ansible.builtin.env', 'KAFKA_ADMIN_PASSWORD') }}"
+kafka_admin_client_config_path: "{{ kafka_config_path }}/admin-client.properties"
+kafka_authorizer_class: org.apache.kafka.metadata.authorizer.StandardAuthorizer
+kafka_super_users:
+  - "User:{{ kafka_admin_user }}"
+kafka_jmx_exporter_version: "1.0.1"
+kafka_jmx_exporter_url: >-
+  {{ 'https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/' ~
+     kafka_jmx_exporter_version ~ '/jmx_prometheus_javaagent-' ~
+     kafka_jmx_exporter_version ~ '.jar' }}
+kafka_jmx_exporter_checksum: "sha1:f9c53eb0aa1828c3c9cd7647238563e43a4ed68c"
+kafka_jmx_exporter_path: "{{ kafka_install_path }}/libs/jmx_prometheus_javaagent-{{ kafka_jmx_exporter_version }}.jar"
+kafka_jmx_exporter_config_path: "{{ kafka_config_path }}/jmx-exporter.yaml"
+kafka_metrics_port: 9404
+
+# Terraform attaches the dedicated 30 GiB Kafka data disk as scsi1.
+kafka_data_device: /dev/sdb
+kafka_data_filesystem: ext4
+kafka_data_minimum_size_gib: 30
+kafka_data_minimum_free_gib: 25
+
+# Kafka clients authenticate with SCRAM on the LAN. Controller quorum and
+# inter-broker traffic are restricted further to the three broker IP addresses.
+firewall_kafka_server_lan_ports:
+  - { port: "9092", proto: "tcp", comment: "Kafka SASL_PLAINTEXT" }
+
+firewall_kafka_server_peer_ips:
+  - "192.0.2.57"
+  - "192.0.2.58"
+  - "192.0.2.59"
+firewall_kafka_server_peer_ports:
+  - { port: "9093", proto: "tcp", comment: "Kafka KRaft controller quorum" }
+  - { port: "9094", proto: "tcp", comment: "Kafka inter-broker traffic" }
+
+# Prometheus traffic is SNATed by Cilium to the Kubernetes node addresses before
+# it reaches the brokers. Keep the exporter accessible only from those nodes.
+firewall_kafka_server_metrics_source_ips:
+  - "{{ hostvars['control-plane-1.example.invalid']['ansible_host'] }}"
+  - "{{ hostvars['worker-1.example.invalid']['ansible_host'] }}"
+  - "{{ hostvars['worker-2.example.invalid']['ansible_host'] }}"
+firewall_kafka_server_metrics_ports:
+  - { port: "9404", proto: "tcp", comment: "Kafka Prometheus metrics" }
+  - { port: "9308", proto: "tcp", comment: "Kafka exporter metrics" }

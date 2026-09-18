@@ -1,0 +1,18 @@
+[Unit]
+Description=Kafka exporter for Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ kafka_exporter_user }}
+Group={{ kafka_exporter_group }}
+EnvironmentFile={{ kafka_exporter_config_dir }}/kafka-exporter.env
+ExecStart={{ kafka_exporter_binary_path }} --kafka.version={{ kafka_exporter_kafka_version }}{% for server in kafka_exporter_kafka_servers %} --kafka.server={{ server }}{% endfor %} --sasl.enabled --sasl.mechanism=scram-sha512 --sasl.username=${KAFKA_EXPORTER_SASL_USERNAME} --sasl.password=${KAFKA_EXPORTER_SASL_PASSWORD} --web.listen-address={{ kafka_exporter_listen_address }} --web.telemetry-path={{ kafka_exporter_metrics_path }}
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

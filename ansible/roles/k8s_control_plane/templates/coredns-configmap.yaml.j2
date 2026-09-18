@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: {{ coredns_namespace }}
+data:
+  # The Corefile was read from the live ConfigMap and only its default forward
+  # rule was changed in configure_coredns.yml.
+  Corefile: |
+{{ coredns_corefile_desired | indent(4, true) }}

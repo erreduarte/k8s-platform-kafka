@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kafka-brokers
+spec:
+  staticConfigs:
+    - targets:
+        - 192.0.2.57:9404
+        - 192.0.2.58:9404
+        - 192.0.2.59:9404
+  relabelings:
+    - sourceLabels: [__address__]
+      regex: 192\.0\.2\.57:.*
+      targetLabel: host
+      replacement: kafka01
+    - sourceLabels: [__address__]
+      regex: 192\.0\.2\.58:.*
+      targetLabel: host
+      replacement: kafka02
+    - sourceLabels: [__address__]
+      regex: 192\.0\.2\.59:.*
+      targetLabel: host
+      replacement: kafka03
+  metricsPath: /metrics

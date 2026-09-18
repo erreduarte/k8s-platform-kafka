@@ -1,0 +1,50 @@
+---
+# Bootstrap the cluster control plane and make kubectl usable for both root and the ansible
+# service user. Re-running the role is safe: every task skips when its target already exists.
+# Docs: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+
+# Pinned to the host's primary IP via ansible_facts (avoids the deprecated $(hostname -i) shell
+# substitution, which the command module would not expand anyway).
+# --skip-phases=addon/kube-proxy: Cilium replaces kube-proxy entirely (see install_cilium.yml).
+- name: Initialize Kubernetes cluster with kubeadm
+  ansible.builtin.command:
+    cmd: >-
+      kubeadm init
+      --pod-network-cidr={{ pod_network_cidr }}
+      --apiserver-advertise-address={{ ansible_facts['default_ipv4']['address'] }}
+      --skip-phases=addon/kube-proxy
+  args:
+    creates: /etc/kubernetes/admin.conf
+
+
+- name: Create .kube directory for root
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    mode: "0700"
+
+- name: Copy admin.conf to root kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: true
+    mode: "0600"
+
+# The ansible service user also gets a kubeconfig so later automation tasks can run kubectl
+# without sudo.
+- name: Create .kube directory for ansible user
+  ansible.builtin.file:
+    path: /home/ansible/.kube
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: "0700"
+
+- name: Copy admin.conf to ansible user kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ansible/.kube/config
+    remote_src: true
+    owner: ansible
+    group: ansible
+    mode: "0600"

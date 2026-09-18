@@ -1,0 +1,7 @@
+---
+# Called only when the containerd config task changes, so the restart stays idempotent and passes ansible-lint.
+- name: Restart containerd
+  ansible.builtin.systemd:
+    name: containerd
+    state: restarted
+    enabled: true

@@ -1,0 +1,121 @@
+---
+- name: Verify Kafka exporter credentials
+  ansible.builtin.assert:
+    that:
+      - kafka_exporter_kafka_username is match('^[A-Za-z0-9._-]+$')
+      - kafka_exporter_kafka_password is match('^[A-Za-z0-9._-]{32,}$')
+    fail_msg: >-
+      KAFKA_ADMIN_PASSWORD must contain at least 32 letters, digits, periods,
+      underscores, or hyphens.
+  no_log: true
+
+- name: Create Kafka exporter system group
+  ansible.builtin.group:
+    name: "{{ kafka_exporter_group }}"
+    system: true
+
+- name: Create Kafka exporter system user
+  ansible.builtin.user:
+    name: "{{ kafka_exporter_user }}"
+    group: "{{ kafka_exporter_group }}"
+    system: true
+    home: /nonexistent
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Verify Kafka exporter architecture is supported
+  ansible.builtin.assert:
+    that: ansible_facts['architecture'] in kafka_exporter_archives
+    fail_msg: "Unsupported architecture for kafka-exporter: {{ ansible_facts['architecture'] }}"
+
+- name: Set Kafka exporter download architecture
+  ansible.builtin.set_fact:
+    kafka_exporter_arch: "{{ kafka_exporter_archives[ansible_facts['architecture']] }}"
+
+- name: Create Kafka exporter installation directory
+  ansible.builtin.file:
+    path: "{{ kafka_exporter_install_root }}/kafka-exporter-{{ kafka_exporter_version }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download pinned Kafka exporter release
+  ansible.builtin.get_url:
+    url: "https://github.com/rfvbkm/kafka-exporter/releases/download/v{{ kafka_exporter_version }}/kafka-exporter-{{ kafka_exporter_version }}.linux-{{ kafka_exporter_arch }}.tar.gz"
+    dest: "/tmp/kafka-exporter-{{ kafka_exporter_version }}.linux-{{ kafka_exporter_arch }}.tar.gz"
+    checksum: "sha256:{{ kafka_exporter_sha256[kafka_exporter_arch] }}"
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Extract pinned Kafka exporter release
+  ansible.builtin.unarchive:
+    src: "/tmp/kafka-exporter-{{ kafka_exporter_version }}.linux-{{ kafka_exporter_arch }}.tar.gz"
+    dest: "{{ kafka_exporter_install_root }}/kafka-exporter-{{ kafka_exporter_version }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+    creates: "{{ kafka_exporter_install_root }}/kafka-exporter-{{ kafka_exporter_version }}/kafka-exporter"
+  when: not ansible_check_mode
+
+- name: Install Kafka exporter binary
+  ansible.builtin.copy:
+    src: "{{ kafka_exporter_install_root }}/kafka-exporter-{{ kafka_exporter_version }}/kafka-exporter"
+    dest: "{{ kafka_exporter_binary_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Create Kafka exporter configuration directory
+  ansible.builtin.file:
+    path: "{{ kafka_exporter_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ kafka_exporter_group }}"
+    mode: "0750"
+
+- name: Deploy Kafka exporter credentials
+  ansible.builtin.template:
+    src: kafka-exporter.env.j2
+    dest: "{{ kafka_exporter_config_dir }}/kafka-exporter.env"
+    owner: root
+    group: "{{ kafka_exporter_group }}"
+    mode: "0640"
+  no_log: true
+  when: not ansible_check_mode
+  notify: Restart Kafka exporter
+
+- name: Deploy Kafka exporter systemd unit
+  ansible.builtin.template:
+    src: kafka-exporter.service.j2
+    dest: "/etc/systemd/system/{{ kafka_exporter_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Kafka exporter
+
+- name: Enable and start Kafka exporter
+  ansible.builtin.systemd_service:
+    name: "{{ kafka_exporter_service_name }}"
+    daemon_reload: true
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Verify Kafka exporter metrics endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1{{ kafka_exporter_listen_address }}{{ kafka_exporter_metrics_path }}"
+    status_code: 200
+  register: kafka_exporter_metrics
+  retries: 10
+  delay: 3
+  until: kafka_exporter_metrics.status == 200
+  when: not ansible_check_mode
+
+- name: Clean up Kafka exporter release archive
+  ansible.builtin.file:
+    path: "/tmp/kafka-exporter-{{ kafka_exporter_version }}.linux-{{ kafka_exporter_arch }}.tar.gz"
+    state: absent
+  when: not ansible_check_mode

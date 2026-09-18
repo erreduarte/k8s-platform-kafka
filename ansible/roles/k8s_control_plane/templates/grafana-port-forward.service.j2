@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish Grafana UI to the LAN
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=KUBECONFIG=/etc/kubernetes/admin.conf
+ExecStart=/usr/bin/kubectl -n monitoring port-forward service/kube-prometheus-stack-grafana 3000:80 --address {{ grafana_port_forward_address }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

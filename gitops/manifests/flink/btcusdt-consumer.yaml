@@ -1,0 +1,109 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: btcusdt-consumer
+  namespace: flink
+  labels:
+    app.kubernetes.io/name: btcusdt-consumer
+    app.kubernetes.io/part-of: flink
+spec:
+  image: ghcr.io/example-org/k8s-platform-kafka-btcusdt-consumer:main
+  imagePullPolicy: IfNotPresent
+  flinkVersion: v2_3
+  serviceAccount: default
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "1"
+    metrics.reporters: prom
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+    s3.endpoint: https://object-storage.example.invalid
+    s3.path-style-access: "true"
+    s3.region: auto
+    execution.checkpointing.storage: filesystem
+    execution.checkpointing.interval: 10s
+    execution.checkpointing.dir: s3://example-flink-checkpoint/flink-checkpoints
+    execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+  jobManager:
+    resource:
+      cpu: 1
+      memory: 1Gi
+  taskManager:
+    replicas: 1
+    resource:
+      cpu: 1
+      memory: 2Gi
+  podTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: btcusdt-consumer
+        app.kubernetes.io/part-of: flink
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+        - name: flink-main-container
+          ports:
+            - name: metrics
+              containerPort: 9249
+              protocol: TCP
+          env:
+            - name: FLINK_HOME
+              value: /opt/flink
+            - name: FLINK_LIB_DIR
+              value: /opt/flink/lib
+            - name: FLINK_PLUGINS_DIR
+              value: /opt/flink/plugins
+            - name: FLINK_OPT_DIR
+              value: /opt/flink/opt
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: 192.0.2.57:9092,192.0.2.58:9092,192.0.2.59:9092
+            - name: KAFKA_BTCUSDT_TOPIC
+              value: binance-btcusdt-trade
+            - name: KAFKA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-flink-credentials
+                  key: username
+            - name: KAFKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-flink-credentials
+                  key: password
+            - name: R2_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: r2-flink-credentials
+                  key: endpoint
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: r2-flink-credentials
+                  key: accessKeyId
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: r2-flink-credentials
+                  key: accessKeyId
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2-flink-credentials
+                  key: secretAccessKey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2-flink-credentials
+                  key: secretAccessKey
+            - name: R2_PREFIX
+              value: btcusdt
+            - name: R2_FLUSH_INTERVAL_SECONDS
+              value: "60"
+  job:
+    jarURI: local:///opt/flink/opt/flink-python-2.3.0.jar
+    entryClass: org.apache.flink.client.python.PythonDriver
+    args:
+      - -py
+      - /opt/flink/usrlib/consumer.py
+    parallelism: 1
+    upgradeMode: last-state
+    state: running

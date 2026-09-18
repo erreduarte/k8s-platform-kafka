@@ -1,0 +1,25 @@
+" Jump to the last position when reopening a file
+if has("autocmd")
+  au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
+endif
+
+" Use skel templates from ~/.vim/templates
+if has("autocmd")
+  augroup templates
+    autocmd BufNewFile *.json 0r ~/.vim/templates/skeleton.json
+    autocmd BufNewFile *.bash 0r ~/.vim/templates/skeleton.bash
+    autocmd BufNewFile *.py   0r ~/.vim/templates/skeleton.py
+    autocmd BufNewFile *.sh   0r ~/.vim/templates/skeleton.sh
+  augroup END
+endif
+
+set tabstop=4 shiftwidth=4 expandtab                " spaces instead of tabs
+au BufRead,BufNewFile Makefile* set noexpandtab     " except in Makefiles
+set softtabstop=4
+
+syntax on
+set backspace=indent,eol,start
+set autoindent
+set smartindent
+
+set textwidth=119

@@ -1,0 +1,38 @@
+---
+# Configure the ArgoCD GitOps bootstrap: register the Git repository credential and
+# apply the root Application that points ArgoCD at gitops/applications/.
+#
+# Both resources are applied with `kubectl apply`, making this task file idempotent:
+# re-running reconciles any drift without erroring on already-existing objects.
+#
+# The repository credential is a plain Kubernetes Secret with the label
+# `argocd.argoproj.io/secret-type: repository`. ArgoCD's repo-server watches for
+# Secrets with this label and registers them automatically — no argocd CLI required.
+#
+# The SSH private key (argocd_gitops_ssh_key) must be set as an ansible-vault
+# encrypted string. It is never written to disk unencrypted; Ansible renders the
+# template in memory and pipes the result directly to kubectl apply via stdin.
+
+- name: Assert GitOps variables are set
+  ansible.builtin.assert:
+    that:
+      - argocd_gitops_repo_url | length > 0
+      - argocd_gitops_ssh_key | length > 0
+    fail_msg: >-
+      argocd_gitops_repo_url and argocd_gitops_ssh_key must both be set.
+      Define argocd_gitops_repo_url in inventory/group_vars/k8s.yml and
+      argocd_gitops_ssh_key as an ansible-vault encrypted string.
+
+- name: Apply ArgoCD repository credential Secret
+  ansible.builtin.shell: # noqa: command-instead-of-shell
+    cmd: kubectl apply -f -
+    stdin: "{{ lookup('ansible.builtin.template', 'argocd-repo-secret.yaml.j2') }}"
+  # shell is required: ansible.builtin.command does not support the stdin parameter.
+  changed_when: false
+
+- name: Apply ArgoCD root Application
+  ansible.builtin.shell: # noqa: command-instead-of-shell
+    cmd: kubectl apply -f -
+    stdin: "{{ lookup('ansible.builtin.template', 'argocd-root-app.yaml.j2') }}"
+  # shell is required: ansible.builtin.command does not support the stdin parameter.
+  changed_when: false

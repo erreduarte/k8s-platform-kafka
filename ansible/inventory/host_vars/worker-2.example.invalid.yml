@@ -1,0 +1,7 @@
+---
+ansible_host: "192.0.2.52"
+prometheus_labels:
+  hardware: virtual
+  distro: noble
+  service:
+    - k8s

@@ -1,0 +1,54 @@
+---
+# Orchestrator for the k8s_control_plane role. The steps run in order: bring up the cluster,
+# install Helm, deploy Cilium as the CNI, repair and verify cluster DNS, install Argo CD,
+# then publish a worker join command.
+#
+# Cilium readiness is NOT checked here. It is gated by a separate play in site.yml
+# ("Verify Cilium CNI readiness") that runs after workers have joined and imports wait_cilium.yml.
+#
+# import_tasks (not include_tasks) is used so role-level tags propagate into the child task files.
+# Docs: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+
+- name: Initialize Kubernetes cluster
+  ansible.builtin.import_tasks: initialize_cluster.yml
+
+- name: Install Helm
+  ansible.builtin.import_tasks: install_helm.yml
+
+- name: Install cosign
+  ansible.builtin.import_tasks: install_cosign.yml
+
+- name: Install Cilium CNI
+  ansible.builtin.import_tasks: install_cilium.yml
+
+- name: Configure CoreDNS
+  ansible.builtin.import_tasks: configure_coredns.yml
+
+# Handlers normally run only at the end of the play. Flush here so the readiness
+# gate checks the CoreDNS pods after an RBAC or Corefile change, not before it.
+- name: Apply pending CoreDNS restart
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for CoreDNS
+  ansible.builtin.import_tasks: wait_coredns.yml
+
+- name: Install Argo CD
+  ansible.builtin.import_tasks: install_argocd.yml
+
+- name: Configure Grafana administrator credentials
+  ansible.builtin.import_tasks: configure_grafana_credentials.yml
+
+- name: Publish Argo CD to the LAN
+  ansible.builtin.import_tasks: publish_argocd.yml
+
+- name: Publish Grafana to the LAN
+  ansible.builtin.import_tasks: publish_grafana.yml
+
+- name: Configure Kafka UI credentials
+  ansible.builtin.import_tasks: configure_kafka_ui_credentials.yml
+
+- name: Publish Kafka UI to the LAN
+  ansible.builtin.import_tasks: publish_kafka_ui.yml
+
+- name: Generate worker join command
+  ansible.builtin.import_tasks: generate_join.yml

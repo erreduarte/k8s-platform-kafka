@@ -1,0 +1,25 @@
+---
+# tasks file for roles/k8s_worker
+# https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-linux-nodes/#adding-linux-worker-nodes
+
+
+## JOIN WORKER TO CLUSTER
+
+# Reads the join command saved by the k8s_control_plane role from the CP node.
+# delegate_to targets the first host in k8s_control_plane group — avoids hardcoding the hostname.
+
+- name: Read join command from control plane
+  ansible.builtin.slurp:
+    src: /root/join-command
+  register: join_command_b64
+  delegate_to: "{{ groups['k8s_control_plane'][0] }}"
+  when: not ansible_check_mode
+
+
+# Skipped if the node is already joined (/etc/kubernetes/kubelet.conf is created by kubeadm join).
+- name: Join worker node to Kubernetes cluster
+  ansible.builtin.command:
+    cmd: "{{ join_command_b64.content | b64decode | trim }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when: not ansible_check_mode

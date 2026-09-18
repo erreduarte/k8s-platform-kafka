@@ -1,0 +1,103 @@
+---
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+  notify: Restart cron
+
+- name: Ensure common packages are installed
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure host-specific extra packages are installed
+  ansible.builtin.apt:
+    name: "{{ extra_packages }}"
+    state: present
+  when: extra_packages is defined
+
+- name: Enable unattended security upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Limit persistent journald storage and retention
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure persistent journald storage and retention
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/99-k8s-platform-kafka.conf
+    content: |
+      [Journal]
+      SystemMaxUse=300M
+      MaxRetentionSec=7d
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply journald retention
+
+- name: Remove quiet and splash from kernel command line
+  ansible.builtin.replace:
+    path: /boot/firmware/cmdline.txt
+    regexp: '\b(quiet|splash)\b\s*'
+    replace: ''
+  when: "'rpi' in group_names"
+
+- name: Disable SSH password authentication by default when requested
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication\s+'
+    line: PasswordAuthentication no
+    validate: /usr/sbin/sshd -t -f %s
+  when: ssh_password_authentication | default(false) | bool
+  notify: Restart ssh
+
+- name: Ensure SSH public key authentication is enabled when requested
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PubkeyAuthentication\s+'
+    line: PubkeyAuthentication yes
+    validate: /usr/sbin/sshd -t -f %s
+  when: ssh_password_authentication | default(false) | bool
+  notify: Restart ssh
+
+- name: Enable SSH password authentication for LAN subnet when requested
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} ANSIBLE MANAGED LAN PASSWORD AUTH"
+    block: |
+      Match Address 192.0.2.0/26
+        PasswordAuthentication yes
+    validate: /usr/sbin/sshd -t -f %s
+  when: ssh_password_authentication | default(false) | bool
+  notify: Restart ssh
+
+- name: Ensure /etc/hosts entries are present
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }}\t{{ item.names | join('\t') }}"
+    regexp: "^{{ item.ip | regex_escape() }}\\s"
+    state: present
+  loop: "{{ hosts_entries | default([]) }}"
+
+- name: Set system hostname (short)
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname.split('.')[0] }}"
+
+- name: Ensure 127.0.1.1 resolves to FQDN in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^127\\.0\\.1\\.1\\s"
+    line: "127.0.1.1\t{{ inventory_hostname }}\t{{ inventory_hostname.split('.')[0] }}"
+    state: present

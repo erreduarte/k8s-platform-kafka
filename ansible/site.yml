@@ -1,0 +1,115 @@
+---
+# Main playbook for Kubernetes and Kafka hosts only.
+# Assumes the 'ansible' service user exists and SSH key authentication is
+# configured. See playbooks/bootstrap.yml for first-time setup.
+#
+# Usage:
+#   ansible-playbook site.yml -i inventory/hosts.yml
+#
+# Limit to a specific host or group:
+#   ansible-playbook site.yml -i inventory/hosts.yml -l kafka_server
+#   ansible-playbook site.yml -i inventory/hosts.yml -l control-plane-1.example.invalid
+#
+# Run only specific roles via tags:
+#   ansible-playbook site.yml -i inventory/hosts.yml --tags firewall
+#   ansible-playbook site.yml -i inventory/hosts.yml --tags common,users
+
+- name: Apply baseline to all hosts
+  hosts: all
+  become: true
+  gather_facts: true
+  ignore_unreachable: true
+
+  roles:
+    - role: common
+      tags: common
+    - role: users
+      tags: users
+    - role: shell
+      tags: shell
+    - role: firewall
+      tags: firewall
+
+- name: Prepare Kafka broker hosts
+  hosts: kafka_server
+  become: true
+  gather_facts: true
+  serial: 1
+
+  roles:
+    - role: kafka_server
+      tags: kafka_server
+    - role: kafka_exporter
+      tags: kafka_exporter
+
+- name: Configure K8S nodes
+  hosts: k8s
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: k8s_common
+      tags: k8s_common
+
+
+- name: Configure K8S Controlplane
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: k8s_control_plane
+      tags: k8s_control_plane
+
+- name: Configure K8S Worker
+  hosts: k8s_worker
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: k8s_worker
+      tags: k8s_worker
+
+# Cilium CNI readiness check runs AFTER workers have joined.
+# hubble-relay and hubble-ui run as Deployments and do not tolerate the control-plane taint —
+# they stay Pending until a schedulable worker node exists.
+- name: Verify Cilium CNI readiness
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Wait for Cilium components to become available
+      ansible.builtin.import_role:
+        name: k8s_control_plane
+        tasks_from: wait_cilium
+      tags: k8s_cilium_status
+
+# Argo CD readiness check runs AFTER workers have joined for the same reason as Cilium:
+# all Argo CD components are Deployments and stay Pending without a schedulable worker.
+- name: Verify Argo CD readiness
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Wait for Argo CD components to become available
+      ansible.builtin.import_role:
+        name: k8s_control_plane
+        tasks_from: wait_argocd
+      tags: k8s_argocd_status
+
+# GitOps bootstrap: register the Git repository credential and apply the root Application.
+# Runs after Argo CD is Ready so the repo-server can immediately validate the SSH key.
+# Safe to re-run: both kubectl apply calls are idempotent.
+- name: Bootstrap Argo CD GitOps
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Configure Argo CD repository and root Application
+      ansible.builtin.import_role:
+        name: k8s_control_plane
+        tasks_from: configure_argocd
+      tags: k8s_argocd_gitops

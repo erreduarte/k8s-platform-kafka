@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: root
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    # Replace with the monorepo remote before enabling Argo CD bootstrap.
+    repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    targetRevision: main
+    path: gitops/applications
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

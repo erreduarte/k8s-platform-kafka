@@ -1,0 +1,78 @@
+---
+# Install Helm from the upstream binary release. Skipped entirely when the installed version
+# already matches helm_version, so re-runs do not re-download the tarball.
+# Docs: https://helm.sh/docs/intro/install/#from-the-binary-releases
+
+- name: Check installed Helm version
+  ansible.builtin.command:
+    cmd: helm version --short
+  register: helm_installed_version
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+
+# True when Helm is missing or running a different version than requested.
+- name: Set helm_install_needed fact
+  ansible.builtin.set_fact:
+    helm_install_needed: >-
+      {{ helm_installed_version.rc != 0
+         or helm_version not in helm_installed_version.stdout }}
+
+
+# Translate the host CPU architecture into the suffix used by the Helm release filename.
+# Control-plane VMs are x86_64 today; the arm64 mapping is here so the role works unchanged
+# Helm is installed only on Kubernetes control-plane nodes.
+- name: Set Helm download architecture
+  ansible.builtin.set_fact:
+    helm_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+  when: helm_install_needed
+
+
+- name: Download Helm release tarball
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    dest: "/tmp/helm-{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    mode: "0644"
+  when: helm_install_needed
+
+
+# Use a per-version extraction directory so leftover files from a previous helm_version cannot
+# get reused. The inner folder produced by the tarball is always named 'linux-<arch>', so we
+# scope freshness with the outer directory instead.
+- name: Create Helm extraction directory
+  ansible.builtin.file:
+    path: "/tmp/helm-{{ helm_version }}"
+    state: directory
+    mode: "0755"
+  when: helm_install_needed
+
+
+- name: Extract Helm release tarball
+  ansible.builtin.unarchive:
+    src: "/tmp/helm-{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    dest: "/tmp/helm-{{ helm_version }}"
+    remote_src: true
+    creates: "/tmp/helm-{{ helm_version }}/linux-{{ helm_arch }}/helm"
+  when: helm_install_needed
+
+
+- name: Install Helm binary
+  ansible.builtin.copy:
+    src: "/tmp/helm-{{ helm_version }}/linux-{{ helm_arch }}/helm"
+    dest: /usr/local/bin/helm
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  when: helm_install_needed
+
+
+- name: Clean up Helm install artifacts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/helm-{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+    - "/tmp/helm-{{ helm_version }}"
+  when: helm_install_needed

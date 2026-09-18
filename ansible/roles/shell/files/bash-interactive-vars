@@ -1,0 +1,15 @@
+# avoid shebang here — sourced by .bashrc
+
+# Increase history size
+HISTFILESIZE=10000
+HISTSIZE=1000
+HISTCONTROL=erasedups:ignoreboth
+
+# Bash word splitting: break on newlines only, not spaces
+export IFS=$'\n'
+
+# Preferred editor
+export EDITOR=vim
+
+# Create secrets directory if missing
+[ ! -d "$HOME/.secrets" ] && mkdir -p -m 700 "$HOME/.secrets" 2>/dev/null

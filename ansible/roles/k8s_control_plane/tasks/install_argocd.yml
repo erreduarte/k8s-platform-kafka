@@ -1,0 +1,50 @@
+---
+# Install Argo CD using the upstream all-in-one bundle. The single manifest contains every
+# component needed for a working install: the controllers and servers (argocd-server, repo
+# server, application controller, dex, redis, applicationset controller, notifications
+# controller), the custom resources Argo CD reconciles (Application, ApplicationSet,
+# AppProject), and the RBAC that ties them together.
+# Docs:
+#   https://argo-cd.readthedocs.io/en/stable/getting_started/
+#   https://argo-cd.readthedocs.io/en/stable/operator-manual/tls/
+#
+# TLS is intentionally left at its default. On first start the Argo CD UI/API endpoint serves
+# a self-signed certificate that it generates and stores itself. Until a real certificate is
+# provided, browsers will warn and the argocd CLI needs --insecure. Two upgrade paths exist
+# (provisioning a TLS secret managed by cert-manager, or terminating TLS at a Gateway in
+# front of Argo CD); both are described in the role README and are out of scope here.
+
+# `kubectl create` would error out if the namespace already exists, so we pipe a generated
+# manifest into `kubectl apply`. This stays idempotent and avoids pulling in the Python
+# `kubernetes` library that `kubernetes.core.k8s` would require on the target host.
+- name: Create Argo CD namespace
+  ansible.builtin.shell:
+    cmd: >-
+      kubectl create namespace {{ argocd_namespace }}
+      --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+
+
+# Server-side apply is required, not a preference: one of the Argo CD CRDs (ApplicationSet)
+# is larger than the 262 KB limit that the default client-side apply enforces, so a plain
+# `kubectl apply` would fail. --force-conflicts lets this run claim ownership of fields that
+# may already be tracked by another tool — harmless on a fresh install, necessary on upgrades.
+#
+# changed_when: false because server-side apply prints the same "serverside-applied" line for
+# every resource on every run, with no signal we can use to detect real changes. The operation
+# itself is idempotent: re-running reconciles drift without modifying anything that already
+# matches.
+#
+# retries/until: the manifest is fetched from raw.githubusercontent.com on every run; a brief
+# DNS or HTTP hiccup would otherwise fail the whole play.
+- name: Apply Argo CD install manifest
+  ansible.builtin.command:
+    cmd: >-
+      kubectl apply -n {{ argocd_namespace }}
+      --server-side --force-conflicts
+      -f https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml
+  register: argocd_apply
+  until: argocd_apply.rc == 0
+  retries: 3
+  delay: 10
+  changed_when: false

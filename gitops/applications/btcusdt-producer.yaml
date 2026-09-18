@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: btcusdt-producer
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    targetRevision: main
+    path: gitops/manifests/kafka/btcusdt-producer
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: flink
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ClientSideApplyMigration=false

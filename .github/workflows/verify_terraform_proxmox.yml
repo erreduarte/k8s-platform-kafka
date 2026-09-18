@@ -1,0 +1,74 @@
+name: verify_terraform_proxmox
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/verify_terraform_proxmox.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-proxmox-operations
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  plan:
+    name: Detect Proxmox changes
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, ansible]
+    defaults:
+      run:
+        working-directory: terraform
+    env:
+      AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      PROXMOX_VE_ENDPOINT: ${{ secrets.PROXMOX_VE_ENDPOINT }}
+      PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_VE_API_TOKEN }}
+      PROXMOX_VE_INSECURE: ${{ secrets.PROXMOX_VE_INSECURE }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Initialize remote state
+        run: make setup
+
+      - name: Detect and display changes
+        shell: bash
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color
+          plan_exit="$?"
+          set -e
+
+          case "$plan_exit" in
+            0)
+              echo "No Terraform infrastructure changes were detected."
+              printf '%s\n' \
+                "## Terraform plan" \
+                "" \
+                "No infrastructure changes were detected." \
+                >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              echo "Terraform changes detected."
+              echo "Review the plan output, then run APPLY_TERRAFORM_PROXMOX."
+              printf '%s\n' \
+                "## Terraform changes detected" \
+                "" \
+                "Review the plan output above before applying." \
+                "Run apply_terraform_proxmox from main and enter" \
+                "APPLY_TERRAFORM_PROXMOX to apply this configuration." \
+                >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              exit "$plan_exit"
+              ;;
+          esac

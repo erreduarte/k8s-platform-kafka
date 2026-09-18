@@ -1,0 +1,30 @@
+[project]
+name = "k8s-platform-kafka"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Example Maintainer", email = "maintainer@example.invalid" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "apache-flink==2.2.1",
+    "boto3>=1.43.85",
+    "kafka-python==3.0.11",
+    "prometheus-client==0.23.1",
+    "websocket-client==1.9.0",
+]
+
+[project.scripts]
+k8s-platform-kafka = "homelab_kafka:main"
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0,<5.0",
+    "radon>=6.0,<7.0",
+    "ruff>=0.6,<1.0",
+]

@@ -1,0 +1,68 @@
+---
+- name: Create a Kafka SCRAM user
+  hosts: kafka_server
+  become: true
+  gather_facts: false
+
+  vars:
+    kafka_managed_user: "{{ lookup('ansible.builtin.env', 'KAFKA_USER_NAME') }}"
+    kafka_managed_password: "{{ lookup('ansible.builtin.env', 'KAFKA_USER_PASSWORD') }}"
+    kafka_managed_password_hash: "{{ kafka_managed_password | hash('sha256') }}"
+    kafka_managed_user_marker: >-
+      {{ kafka_data_path }}/.scram-user-{{ kafka_managed_user }}-password-sha256
+
+  tasks:
+    - name: Validate Kafka user input
+      ansible.builtin.assert:
+        that:
+          - kafka_managed_user is match('^[A-Za-z0-9._-]+$')
+          - kafka_managed_password == kafka_managed_user
+        fail_msg: Username must contain only letters, digits, periods, underscores, or hyphens.
+      no_log: true
+
+    - name: Read Kafka user password marker
+      ansible.builtin.slurp:
+        src: "{{ kafka_managed_user_marker }}"
+      register: kafka_managed_password_marker
+      changed_when: false
+      failed_when: false
+      delegate_to: "{{ groups['kafka_server'] | sort | first }}"
+      run_once: true
+      no_log: true
+
+    - name: Create Kafka SCRAM user
+      ansible.builtin.command:
+        argv:
+          - "{{ kafka_current_path }}/bin/kafka-configs.sh"
+          - --bootstrap-server
+          - "localhost:{{ kafka_inter_broker_port }}"
+          - --alter
+          - --add-config
+          - "{{ kafka_sasl_mechanism }}=[iterations=8192,password={{ kafka_managed_password }}]"
+          - --entity-type
+          - users
+          - --entity-name
+          - "{{ kafka_managed_user }}"
+      changed_when: false
+      when: >-
+        kafka_managed_password_marker.content is not defined or
+        (kafka_managed_password_marker.content | b64decode | trim) !=
+        kafka_managed_password_hash
+      delegate_to: "{{ groups['kafka_server'] | sort | first }}"
+      run_once: true
+      no_log: true
+
+    - name: Record Kafka user password marker
+      ansible.builtin.copy:
+        content: "{{ kafka_managed_password_hash }}\n"
+        dest: "{{ kafka_managed_user_marker }}"
+        owner: "{{ kafka_user }}"
+        group: "{{ kafka_group }}"
+        mode: "0600"
+      when: >-
+        kafka_managed_password_marker.content is not defined or
+        (kafka_managed_password_marker.content | b64decode | trim) !=
+        kafka_managed_password_hash
+      delegate_to: "{{ groups['kafka_server'] | sort | first }}"
+      run_once: true
+      no_log: true

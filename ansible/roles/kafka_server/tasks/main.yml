@@ -1,0 +1,383 @@
+---
+- name: Install Kafka runtime dependencies
+  ansible.builtin.apt:
+    name:
+      - "{{ kafka_java_package }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure Kafka system group exists
+  ansible.builtin.group:
+    name: "{{ kafka_group }}"
+    system: true
+    state: present
+
+- name: Ensure Kafka system user exists
+  ansible.builtin.user:
+    name: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    state: present
+
+- name: Read dedicated Kafka data disk details
+  ansible.builtin.command:
+    cmd: >-
+      lsblk --bytes --json --output PATH,TYPE,FSTYPE,SIZE,MOUNTPOINTS
+      {{ kafka_data_device }}
+  register: kafka_disk_details
+  changed_when: false
+  check_mode: false
+
+- name: Parse dedicated Kafka data disk details
+  ansible.builtin.set_fact:
+    _kafka_disk: "{{ (kafka_disk_details.stdout | from_json).blockdevices | first }}"
+
+- name: Verify dedicated Kafka data disk is safe to use
+  ansible.builtin.assert:
+    that:
+      - _kafka_disk.type == 'disk'
+      - _kafka_disk.size | int >= kafka_data_minimum_size_gib | int * 1024 * 1024 * 1024
+      - (_kafka_disk.children | default([]) | length) == 0
+      - _kafka_disk.fstype in [none, kafka_data_filesystem]
+      - >-
+        (_kafka_disk.mountpoints | default([]) | reject('equalto', none) | list
+        | difference([kafka_data_path]) | length) == 0
+    fail_msg: >-
+      {{ kafka_data_device }} must be a partition-free disk of at least
+      {{ kafka_data_minimum_size_gib }} GiB; detected {{ _kafka_disk.size }} bytes.
+      It must be empty or formatted as {{ kafka_data_filesystem }} and may only
+      be mounted at {{ kafka_data_path }}.
+
+- name: Create or grow Kafka data filesystem
+  community.general.filesystem:
+    dev: "{{ kafka_data_device }}"
+    fstype: "{{ kafka_data_filesystem }}"
+    resizefs: true
+
+- name: Read Kafka data filesystem UUID
+  ansible.builtin.command:
+    cmd: "blkid --output value --match-tag UUID {{ kafka_data_device }}"
+  register: kafka_data_uuid
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Ensure Kafka data path exists
+  ansible.builtin.file:
+    path: "{{ kafka_data_path }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0750"
+
+- name: Mount Kafka data disk by UUID
+  ansible.posix.mount:
+    path: "{{ kafka_data_path }}"
+    src: "UUID={{ kafka_data_uuid.stdout }}"
+    fstype: "{{ kafka_data_filesystem }}"
+    opts: defaults
+    state: mounted
+  when: not ansible_check_mode
+
+- name: Ensure Kafka data path ownership after mount
+  ansible.builtin.file:
+    path: "{{ kafka_data_path }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0750"
+
+- name: Read available Kafka data disk space
+  ansible.builtin.command:
+    cmd: "df --block-size=1 --output=avail {{ kafka_data_path }}"
+  register: kafka_data_space
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify available Kafka data disk space
+  ansible.builtin.assert:
+    that:
+      - kafka_data_space.stdout_lines[1] | int >= kafka_data_minimum_free_gib | int * 1024 * 1024 * 1024
+    fail_msg: >-
+      {{ kafka_data_path }} has less than {{ kafka_data_minimum_free_gib }} GiB free.
+  when: not ansible_check_mode
+
+- name: Download Kafka distribution checksum
+  ansible.builtin.get_url:
+    url: "{{ kafka_download_checksum_url }}"
+    dest: "/var/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz.sha512"
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Read Kafka distribution checksum
+  ansible.builtin.slurp:
+    src: "/var/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz.sha512"
+  register: kafka_download_checksum_file
+  when: not ansible_check_mode
+
+- name: Parse Kafka distribution checksum
+  ansible.builtin.set_fact:
+    _kafka_download_checksum: >-
+      {{ kafka_download_checksum_file.content | b64decode
+      | regex_replace('(?s)^.*?:', '') | regex_replace('[^A-Fa-f0-9]', '') }}
+  when: not ansible_check_mode
+
+- name: Verify Kafka distribution checksum format
+  ansible.builtin.assert:
+    that:
+      - _kafka_download_checksum is match('^[A-Fa-f0-9]{128}$')
+    fail_msg: >-
+      {{ kafka_download_checksum_url }} did not provide a valid SHA-512 checksum.
+  when: not ansible_check_mode
+
+- name: Download Kafka distribution
+  ansible.builtin.get_url:
+    url: "{{ kafka_download_url }}"
+    dest: "/var/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+    checksum: "sha512:{{ _kafka_download_checksum }}"
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Extract Kafka distribution
+  ansible.builtin.unarchive:
+    src: "/var/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+    dest: "{{ kafka_install_root }}"
+    remote_src: true
+    creates: "{{ kafka_install_path }}/bin/kafka-server-start.sh"
+    owner: root
+    group: root
+  when: not ansible_check_mode
+
+- name: Point Kafka current path at the pinned distribution
+  ansible.builtin.file:
+    src: "{{ kafka_install_path }}"
+    dest: "{{ kafka_current_path }}"
+    state: link
+    owner: root
+    group: root
+  when: not ansible_check_mode
+
+- name: Download Prometheus JMX exporter agent
+  ansible.builtin.get_url:
+    url: "{{ kafka_jmx_exporter_url }}"
+    dest: "{{ kafka_jmx_exporter_path }}"
+    checksum: "{{ kafka_jmx_exporter_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Ensure Kafka distribution log directory is writable by the service user
+  ansible.builtin.file:
+    path: "{{ kafka_install_path }}/logs"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0750"
+  when: not ansible_check_mode
+
+- name: Verify Kafka service user can write distribution logs
+  ansible.builtin.command:
+    cmd: "test -w {{ kafka_current_path }}/logs"
+  become: true
+  become_user: "{{ kafka_user }}"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Ensure Kafka configuration and log paths exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ kafka_config_path }}", owner: root, group: "{{ kafka_group }}", mode: "0750" }
+    - { path: "{{ kafka_log_path }}", owner: "{{ kafka_user }}", group: "{{ kafka_group }}", mode: "0750" }
+
+- name: Assert unique Kafka node identifiers
+  ansible.builtin.assert:
+    that:
+      - kafka_node_id is defined
+      - kafka_node_id | int > 0
+      - kafka_cluster_id is match('^[A-Za-z0-9_-]{22}$')
+      - kafka_sasl_mechanism == 'SCRAM-SHA-512'
+      - kafka_admin_user is match('^[A-Za-z0-9._-]+$')
+      - kafka_admin_password is match('^[A-Za-z0-9._-]{32,}$')
+      - >-
+        groups['kafka_server'] | map('extract', hostvars, 'kafka_node_id')
+        | map('int') | list | unique | length == groups['kafka_server'] | length
+    fail_msg: >-
+      Kafka node IDs must be positive and unique; the KRaft cluster ID must be
+      a 22-character URL-safe Base64 UUID; KAFKA_ADMIN_PASSWORD must contain
+      at least 32 letters, digits, periods, underscores, or hyphens.
+  no_log: true
+
+- name: Configure Kafka administrator client properties
+  ansible.builtin.template:
+    src: admin-client.properties.j2
+    dest: "{{ kafka_admin_client_config_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Configure Kafka KRaft server properties
+  ansible.builtin.template:
+    src: server.properties.j2
+    dest: "{{ kafka_config_path }}/server.properties"
+    owner: root
+    group: "{{ kafka_group }}"
+    mode: "0640"
+  register: kafka_server_properties
+
+- name: Configure Prometheus JMX exporter
+  ansible.builtin.template:
+    src: jmx-exporter.yaml.j2
+    dest: "{{ kafka_jmx_exporter_config_path }}"
+    owner: root
+    group: "{{ kafka_group }}"
+    mode: "0640"
+  register: kafka_jmx_exporter_config
+
+- name: Read rendered Kafka KRaft server properties
+  ansible.builtin.slurp:
+    src: "{{ kafka_config_path }}/server.properties"
+  register: kafka_rendered_server_properties
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify required Kafka KRaft server properties
+  ansible.builtin.assert:
+    that:
+      - >-
+        'process.roles=broker,controller' in
+        (kafka_rendered_server_properties.content | b64decode).splitlines()
+      - >-
+        'controller.listener.names=CONTROLLER' in
+        (kafka_rendered_server_properties.content | b64decode).splitlines()
+      - >-
+        (kafka_rendered_server_properties.content | b64decode).splitlines()
+        | select('match', '^controller\\.quorum\\.voters=.+$') | list | length == 1
+      - >-
+        'sasl.enabled.mechanisms=SCRAM-SHA-512' in
+        (kafka_rendered_server_properties.content | b64decode).splitlines()
+      - >-
+        'authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer' in
+        (kafka_rendered_server_properties.content | b64decode).splitlines()
+      - >-
+        'allow.everyone.if.no.acl.found=false' in
+        (kafka_rendered_server_properties.content | b64decode).splitlines()
+    fail_msg: >-
+      The rendered Kafka configuration must contain separate controller quorum
+      and controller listener properties before KRaft storage is formatted.
+  when: not ansible_check_mode
+
+- name: Format Kafka KRaft storage
+  ansible.builtin.command:
+    cmd: >-
+      {{ kafka_current_path }}/bin/kafka-storage.sh format
+      --config {{ kafka_config_path }}/server.properties
+      --cluster-id {{ kafka_cluster_id }}
+    creates: "{{ kafka_data_path }}/logs/meta.properties"
+
+- name: Ensure Kafka owns formatted storage
+  ansible.builtin.file:
+    path: "{{ kafka_data_path }}/logs"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0750"
+    recurse: true
+
+- name: Configure Kafka systemd service
+  ansible.builtin.template:
+    src: kafka.service.j2
+    dest: /etc/systemd/system/kafka.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: kafka_service_unit
+
+- name: Enable and start Kafka service
+  ansible.builtin.systemd_service:
+    name: kafka
+    daemon_reload: true
+    enabled: true
+    state: >-
+      {{ 'restarted' if kafka_server_properties.changed
+      or kafka_jmx_exporter_config.changed or kafka_service_unit.changed else 'started' }}
+
+- name: Verify Prometheus JMX exporter responds
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ kafka_metrics_port }}/metrics"
+    status_code: 200
+  register: kafka_jmx_exporter
+  retries: 10
+  delay: 3
+  until: kafka_jmx_exporter.status == 200
+  when: not ansible_check_mode
+
+- name: Read Kafka administrator password marker
+  ansible.builtin.slurp:
+    src: "{{ kafka_data_path }}/.scram-admin-password-sha256"
+  register: kafka_admin_password_marker
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ groups['kafka_server'] | sort | first }}"
+  run_once: true
+  no_log: true
+
+- name: Update Kafka administrator SCRAM credential
+  ansible.builtin.command:
+    argv:
+      - "{{ kafka_current_path }}/bin/kafka-configs.sh"
+      - --bootstrap-server
+      - "localhost:{{ kafka_inter_broker_port }}"
+      - --alter
+      - --add-config
+      - "{{ kafka_sasl_mechanism }}=[iterations=8192,password={{ kafka_admin_password }}]"
+      - --entity-type
+      - users
+      - --entity-name
+      - "{{ kafka_admin_user }}"
+  changed_when: false
+  when: >-
+    kafka_admin_password_marker.content is not defined or
+    (kafka_admin_password_marker.content | b64decode | trim) !=
+    (kafka_admin_password | hash('sha256'))
+  delegate_to: "{{ groups['kafka_server'] | sort | first }}"
+  run_once: true
+  no_log: true
+
+- name: Record Kafka administrator password marker
+  ansible.builtin.copy:
+    content: "{{ kafka_admin_password | hash('sha256') }}\n"
+    dest: "{{ kafka_data_path }}/.scram-admin-password-sha256"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0600"
+  when: >-
+    kafka_admin_password_marker.content is not defined or
+    (kafka_admin_password_marker.content | b64decode | trim) !=
+    (kafka_admin_password | hash('sha256'))
+  delegate_to: "{{ groups['kafka_server'] | sort | first }}"
+  run_once: true
+  no_log: true
+
+- name: Verify Kafka controller quorum is available
+  ansible.builtin.command:
+    cmd: >-
+      {{ kafka_current_path }}/bin/kafka-metadata-quorum.sh
+      --bootstrap-server localhost:{{ kafka_client_port }}
+      --command-config {{ kafka_admin_client_config_path }} describe --status
+  register: kafka_controller_quorum
+  changed_when: false
+  retries: 10
+  delay: 3
+  until:
+    - kafka_controller_quorum.rc == 0
+    - "'LeaderId:' in kafka_controller_quorum.stdout"
+  when: not ansible_check_mode

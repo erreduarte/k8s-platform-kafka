@@ -1,0 +1,30 @@
+---
+# Subnet allowed to access LAN-only ports.
+firewall_lan_subnet: "192.0.2.0/26"
+
+# Base port lists — defined in group_vars/all.yml and applied to every host.
+# Capability groups add their own ports via uniquely named variables below,
+# which the role unions at play time. Never reuse firewall_public_ports or
+# firewall_lan_ports in a capability group_vars file — doing so triggers
+# Ansible's group var REPLACE behaviour and silently discards the base list.
+#
+# To add ports for a new capability:
+#   1. Define firewall_<capability>_public_ports / firewall_<capability>_lan_ports
+#      in inventory/group_vars/<capability>.yml
+#   2. Add both here defaulting to []
+#   3. Add both to the set_fact composition block in tasks/main.yml
+
+# Capability: k8s
+firewall_k8s_lan_ports: []
+
+# Capability: k8s — ports opened to the pod network instead of the LAN subnet.
+# Empty subnet/list on non-k8s hosts means the pod-network rule block is skipped.
+firewall_k8s_pod_subnet: ""
+firewall_k8s_pod_ports: []
+
+# Capability: kafka_server
+firewall_kafka_server_lan_ports: []
+firewall_kafka_server_peer_ips: []
+firewall_kafka_server_peer_ports: []
+firewall_kafka_server_metrics_source_ips: []
+firewall_kafka_server_metrics_ports: []

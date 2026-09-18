@@ -1,0 +1,182 @@
+---
+# Prepare the host so kubelet and containerd can run: drop swap, load the kernel modules they
+# need, and turn on the network sysctls Kubernetes relies on.
+# Docs: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+# Pre-creates the directory Ansible uses for its remote temp files, silencing a warning on
+# the very first connection to a new host.
+- name: Ensure remote tmp directory exists with correct permissions
+  ansible.builtin.file:
+    path: /root/.ansible/tmp
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+
+# kubelet refuses to start when swap is on. swapoff handles the live state; the next task
+# disables it permanently so the change survives a reboot.
+- name: Disable swap
+  ansible.builtin.command:
+    cmd: swapoff -a
+  when: ansible_facts['swaptotal_mb'] > 0
+  changed_when: true
+
+
+- name: Disable swap permanently in fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+.*)$'
+    replace: '# \1'
+
+
+# overlay is needed by the containerd overlayfs snapshotter; br_netfilter is needed so iptables
+# rules apply to bridged pod traffic.
+- name: Load required kernel modules for Kubernetes
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+
+# Same two modules, persisted so they load automatically after a reboot.
+- name: Persist kernel modules on boot
+  ansible.builtin.copy:
+    content: |
+      overlay
+      br_netfilter
+    dest: /etc/modules-load.d/k8s.conf
+    mode: "0644"
+
+
+# Required by the Kubernetes networking model: let iptables see bridged traffic and allow the
+# host to forward packets between pods.
+- name: Configure sysctl network parameters for Kubernetes
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/k8s.conf
+    state: present
+    reload: true
+  loop:
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+
+
+# Longhorn itself is installed later by Argo CD. These tasks prepare only its host
+# dependencies and run exclusively on the two dedicated worker storage nodes.
+- name: Install Longhorn host dependencies
+  ansible.builtin.apt:
+    name:
+      - open-iscsi
+      - nfs-common
+    state: present
+    update_cache: true
+  when: "'longhorn_storage' in group_names"
+  tags: longhorn_prerequisites
+
+- name: Enable the Longhorn iSCSI daemon
+  ansible.builtin.systemd_service:
+    name: iscsid
+    state: started
+    enabled: true
+  when: "'longhorn_storage' in group_names"
+  tags: longhorn_prerequisites
+
+- name: Read the dedicated Longhorn disk details
+  ansible.builtin.command:
+    cmd: >-
+      lsblk --bytes --json --output PATH,TYPE,FSTYPE,SIZE,MOUNTPOINTS
+      {{ longhorn_storage_device }}
+  register: longhorn_disk_details
+  changed_when: false
+  when: "'longhorn_storage' in group_names"
+  check_mode: false
+  tags: longhorn_prerequisites
+
+- name: Parse the dedicated Longhorn disk details
+  ansible.builtin.set_fact:
+    _longhorn_disk: "{{ (longhorn_disk_details.stdout | from_json).blockdevices | first }}"
+  when: "'longhorn_storage' in group_names"
+  tags: longhorn_prerequisites
+
+- name: Verify the dedicated Longhorn disk is safe to use
+  ansible.builtin.assert:
+    that:
+      - _longhorn_disk.type == 'disk'
+      - _longhorn_disk.size | int >= longhorn_storage_minimum_size_gib | int * 1024 * 1024 * 1024
+      - (_longhorn_disk.children | default([]) | length) == 0
+      - _longhorn_disk.fstype in [none, longhorn_storage_filesystem]
+      - >-
+        (_longhorn_disk.mountpoints | default([]) | reject('equalto', none) | list
+        | difference([longhorn_storage_path]) | length) == 0
+    fail_msg: >-
+      {{ longhorn_storage_device }} must be a partition-free disk of at least
+      {{ longhorn_storage_minimum_size_gib }} GiB. It must be empty or formatted as
+      {{ longhorn_storage_filesystem }} and may only be mounted at {{ longhorn_storage_path }}.
+  when: "'longhorn_storage' in group_names"
+  tags: longhorn_prerequisites
+
+- name: Create or grow the Longhorn filesystem
+  community.general.filesystem:
+    dev: "{{ longhorn_storage_device }}"
+    fstype: "{{ longhorn_storage_filesystem }}"
+    resizefs: true
+  when: "'longhorn_storage' in group_names"
+  tags: longhorn_prerequisites
+
+- name: Read the Longhorn filesystem UUID
+  ansible.builtin.command:
+    cmd: "blkid --output value --match-tag UUID {{ longhorn_storage_device }}"
+  register: longhorn_storage_uuid
+  changed_when: false
+  when:
+    - "'longhorn_storage' in group_names"
+    - not ansible_check_mode
+  tags: longhorn_prerequisites
+
+- name: Ensure the Longhorn data path exists
+  ansible.builtin.file:
+    path: "{{ longhorn_storage_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: "'longhorn_storage' in group_names"
+  tags: longhorn_prerequisites
+
+- name: Mount the Longhorn disk by UUID
+  ansible.posix.mount:
+    path: "{{ longhorn_storage_path }}"
+    src: "UUID={{ longhorn_storage_uuid.stdout }}"
+    fstype: "{{ longhorn_storage_filesystem }}"
+    opts: defaults
+    state: mounted
+  when:
+    - "'longhorn_storage' in group_names"
+    - not ansible_check_mode
+  tags: longhorn_prerequisites
+
+- name: Read available Longhorn disk space
+  ansible.builtin.command:
+    cmd: "df --block-size=1 --output=avail {{ longhorn_storage_path }}"
+  register: longhorn_storage_space
+  changed_when: false
+  when:
+    - "'longhorn_storage' in group_names"
+    - not ansible_check_mode
+  tags: longhorn_prerequisites
+
+- name: Verify available Longhorn disk space
+  ansible.builtin.assert:
+    that:
+      - longhorn_storage_space.stdout_lines[1] | int >= longhorn_storage_minimum_free_gib | int * 1024 * 1024 * 1024
+    fail_msg: >-
+      {{ longhorn_storage_path }} has less than {{ longhorn_storage_minimum_free_gib }} GiB free.
+  when:
+    - "'longhorn_storage' in group_names"
+    - not ansible_check_mode
+  tags: longhorn_prerequisites

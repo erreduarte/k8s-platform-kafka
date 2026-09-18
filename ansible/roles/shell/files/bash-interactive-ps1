@@ -1,0 +1,46 @@
+# avoid shebang here — sourced by .bashrc
+
+GREEN='\[\033[00;32m\]'
+ORANGE='\[\033[00;93m\]'
+BLUE='\[\033[00;36m\]'
+RED='\[\033[00;31m\]'
+GRAY='\[\033[02;37m\]'
+GRAY_LT='\[\033[00;37m\]'
+NO_COLOR='\[\033[00m\]'
+COLOR=$GREEN
+
+renew_PS1() {
+    venvref="($(basename $VIRTUAL_ENV 2>/dev/null)) " || venvref=
+    PSN="$GRAY$(date +%T) $venvref"
+
+    dir_path=$(readlink -f .)
+    git_path=$(git rev-parse --show-toplevel 2>/dev/null)
+
+    if [ -n "$git_path" ]; then
+        repo=$(basename $git_path)
+        repo_ps="$BLUE$repo"
+
+        branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        branch_clr=$([ $COLOR == $GREEN ] && echo $BLUE || echo $GREEN)
+        [[ $branch =~ ^(master|main)$ ]] && branch_clr=$RED
+        [[ $branch =~ \-(maint|rel|release)$ ]] && branch_clr=$RED
+        [[ $branch =~ ^feature ]] && branch_clr=$ORANGE
+        branch_ps="$branch_clr$branch$NO_COLOR"
+
+        rel_path=$(echo $dir_path | sed "s,$git_path/\?,,")
+        PSN+="$USER@$repo_ps$GRAY>$BLUE$rel_path/ $GRAY($branch_ps$GRAY)$NO_COLOR"
+    else
+        hostname_ps="$COLOR$HOSTNAME"
+        rel_path=$(echo $dir_path | sed "s,^$HOME,~,")
+        PSN+="$USER@$hostname_ps$GRAY:$GRAY_LT$rel_path"
+    fi
+
+    echo "$PSN$GRAY_LT \$$NO_COLOR "
+}
+
+PS1='${debian_chroot:+($debian_chroot)}\u@\H:\w \$ '
+case "$TERM" in
+    xterm-color|*-256color)
+        PROMPT_COMMAND='PS1=$(renew_PS1)'
+        ;;
+esac

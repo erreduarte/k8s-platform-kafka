@@ -1,0 +1,35 @@
+---
+profile: production
+
+exclude_paths:
+  - plan/
+  - .github/
+
+# Ansible-lint may not recognise roles applied via site.yml without this
+project_dir: .
+
+skip_list:
+  # Roles use command/shell where no module exists (e.g. uv tool install)
+  - no-changed-when
+  - command-instead-of-module
+  - risky-shell-pipe
+  # Existing role vars predate the role-prefix convention; renaming would
+  # break deployed hosts. New vars should follow the convention.
+  - var-naming[no-role-prefix]
+
+warn_list:
+  - name[missing]
+  - yaml[line-length]
+
+use_default_rules: true
+
+kinds:
+  - playbook: "site.yml"
+  - playbook: "playbooks/*.yml"
+  - tasks: "roles/*/tasks/*.yml"
+  - handlers: "roles/*/handlers/*.yml"
+  - vars: "roles/*/defaults/*.yml"
+  - vars: "roles/*/vars/*.yml"
+  - vars: "inventory/group_vars/*.yml"
+  - vars: "inventory/host_vars/*.yml"
+  - meta: "roles/*/meta/*.yml"

@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: schema-registry
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+      targetRevision: main
+      path: gitops/charts/schema-registry
+      helm:
+        valueFiles:
+          - $values/gitops/values/kafka/schema-registry.yaml
+    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: schema-registry
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ClientSideApplyMigration=false

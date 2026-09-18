@@ -1,0 +1,38 @@
+---
+# Install containerd and configure it as the container runtime kubelet talks to. The key piece
+# is forcing the systemd cgroup driver, which kubelet also uses — a mismatch here makes kubelet
+# fail to start.
+# Docs: https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd
+
+- name: Install containerd
+  ansible.builtin.apt:
+    name: containerd
+    state: present
+    update_cache: true
+
+
+- name: Create containerd config directory
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+
+# Capture the upstream defaults into a variable so the next task can patch them. This is a
+# read-only command, so it never reports a change.
+- name: Generate default containerd config
+  ansible.builtin.command:
+    cmd: containerd config default
+  register: containerd_config
+  changed_when: false
+  check_mode: false
+
+
+# Flip the single setting that matters for kubelet compatibility, then write the file. The
+# handler only restarts containerd when this file actually changes.
+- name: Write containerd config with SystemdCgroup enabled
+  ansible.builtin.copy:
+    content: "{{ containerd_config.stdout | replace('SystemdCgroup = false', 'SystemdCgroup = true') }}"
+    dest: /etc/containerd/config.toml
+    mode: "0644"
+  notify: Restart containerd

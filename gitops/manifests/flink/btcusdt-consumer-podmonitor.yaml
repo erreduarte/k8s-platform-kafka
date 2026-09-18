@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: btcusdt-consumer-flink-metrics
+  namespace: flink
+  labels:
+    app.kubernetes.io/name: btcusdt-consumer
+    app.kubernetes.io/part-of: flink
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: btcusdt-consumer
+      app.kubernetes.io/part-of: flink
+  podTargetLabels:
+    - app.kubernetes.io/name
+    - app.kubernetes.io/part-of
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - targetLabel: cluster
+          replacement: fra
+        - targetLabel: flink_deployment
+          replacement: btcusdt-consumer

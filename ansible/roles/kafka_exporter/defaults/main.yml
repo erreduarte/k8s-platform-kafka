@@ -1,0 +1,21 @@
+---
+kafka_exporter_version: "3.0.0"
+kafka_exporter_archives:
+  x86_64: amd64
+kafka_exporter_sha256:
+  amd64: 916b68e4e7200f2e18a2831528fb9431518484560f837b68ff675029453aa48c
+kafka_exporter_install_root: /opt
+kafka_exporter_binary_path: /usr/local/bin/kafka-exporter
+kafka_exporter_config_dir: /etc/kafka-exporter
+kafka_exporter_service_name: kafka-exporter
+kafka_exporter_user: kafka-exporter
+kafka_exporter_group: kafka-exporter
+kafka_exporter_listen_address: ":9308"
+kafka_exporter_metrics_path: /metrics
+kafka_exporter_kafka_version: "{{ kafka_version }}"
+kafka_exporter_kafka_servers:
+  - 192.0.2.57:9092
+  - 192.0.2.58:9092
+  - 192.0.2.59:9092
+kafka_exporter_kafka_username: "{{ kafka_admin_user }}"
+kafka_exporter_kafka_password: "{{ kafka_admin_password }}"

@@ -1,0 +1,9 @@
+---
+nfs_data_root: /mnt/data
+
+# No client allowlist is carried over from the personal workstation setup.
+nfs_allowed_hosts: []
+
+# Shares to export.
+# options: standard NFS export options string
+nfs_exports: []

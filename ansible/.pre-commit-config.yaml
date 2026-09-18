@@ -1,0 +1,44 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yml]
+        exclude: ^plan/
+
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v25.5.0
+    hooks:
+      - id: ansible-lint
+        additional_dependencies:
+          - ansible-core
+        exclude: ^plan/
+
+  - repo: local
+    hooks:
+      - id: ansible-syntax-check
+        name: Ansible syntax check
+        entry: ansible-playbook --syntax-check site.yml
+        language: system
+        pass_filenames: false
+        files: \.yml$
+        exclude: ^plan/
+
+      - id: validate-inventory
+        name: Validate inventory structure
+        entry: python3 tests/scripts/validate-inventory.py
+        language: system
+        pass_filenames: false
+        files: ^inventory/

@@ -1,0 +1,28 @@
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.kubeconfig
+credentials/
+
+# Terraform local state and plans
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# Python and local tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Local workspace material
+_worktrees/
+.DS_Store

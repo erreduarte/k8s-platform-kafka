@@ -1,0 +1,70 @@
+---
+# CoreDNS needs access to individual EndpointSlices to discover Kubernetes
+# Services. It also must use external DNS servers for public names: the
+# container's resolv.conf may point to the cluster DNS Service itself.
+#
+# The upstream system:coredns role is created by kubeadm. A separate, narrowly
+# scoped role avoids taking ownership of that Kubernetes-managed resource.
+
+- name: Check CoreDNS EndpointSlice get permission
+  ansible.builtin.command:
+    cmd: >-
+      kubectl auth can-i
+      --as=system:serviceaccount:{{ coredns_namespace }}:coredns
+      get endpointslices.discovery.k8s.io
+      --all-namespaces
+  register: coredns_endpointslice_get
+  changed_when: false
+  check_mode: false
+
+# Apply this binding only when the service account cannot already read an
+# EndpointSlice. This makes the repair a no-op on correctly configured clusters.
+- name: Apply CoreDNS EndpointSlice permission
+  ansible.builtin.command:
+    cmd: kubectl apply -f -
+    stdin: "{{ lookup('ansible.builtin.template', 'coredns-endpointslice-rbac.yaml.j2') }}"
+  register: coredns_endpointslice_rbac
+  changed_when: >-
+    'created' in coredns_endpointslice_rbac.stdout
+    or 'configured' in coredns_endpointslice_rbac.stdout
+  when:
+    - not ansible_check_mode
+    - coredns_endpointslice_get.stdout | trim != 'yes'
+  notify: Restart CoreDNS
+
+- name: Read CoreDNS ConfigMap
+  ansible.builtin.command:
+    cmd: >-
+      kubectl -n {{ coredns_namespace }} get configmap coredns
+      -o json
+  register: coredns_configmap
+  changed_when: false
+  check_mode: false
+
+# Keep every existing CoreDNS plugin and setting. Only the default forward rule
+# changes; the regular expression also retains its optional opening brace.
+- name: Build desired CoreDNS Corefile
+  ansible.builtin.set_fact:
+    coredns_corefile_current: "{{ (coredns_configmap.stdout | from_json).data.Corefile }}"
+    coredns_corefile_desired: >-
+      {{ ((coredns_configmap.stdout | from_json).data.Corefile)
+         | regex_replace(
+           '(?m)^(\\s*forward\\s+\\.\\s+)[^{\\n]*(\\{)?\\s*$',
+           '    forward . ' ~ (coredns_upstream_dns | join(' ')) ~ ' \\2') }}
+
+- name: Validate CoreDNS has a default forwarding rule
+  ansible.builtin.assert:
+    that:
+      - coredns_corefile_current is regex('(?m)^\\s*forward\\s+\\.\\s+[^\\n]+')
+    fail_msg: CoreDNS Corefile has no default forward rule to update.
+
+# kubectl apply sends the complete Corefile generated from the current ConfigMap.
+# This avoids a fragile line-number or JSON-path patch of a multi-line value.
+- name: Apply CoreDNS external DNS configuration
+  ansible.builtin.command:
+    cmd: kubectl apply -f -
+    stdin: "{{ lookup('ansible.builtin.template', 'coredns-configmap.yaml.j2') }}"
+  when:
+    - not ansible_check_mode
+    - coredns_corefile_desired != coredns_corefile_current
+  notify: Restart CoreDNS

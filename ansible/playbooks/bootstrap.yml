@@ -1,0 +1,68 @@
+---
+# Bootstrap playbook — run ONCE per new host using an existing privileged user.
+#
+# Creates the dedicated 'ansible' service user with fixed UID/GID, passwordless
+# sudo, and deploys its SSH key. After bootstrapping, use site.yml for all
+# subsequent runs. The service user is never modified by site.yml.
+#
+# The ansible_user variable must be passed explicitly via -e to override
+# the default set in ansible.cfg, ensuring connection uses the operator's
+# personal user rather than the ansible service user (which doesn't exist yet).
+#
+# Preferred usage via Makefile:
+#   make bootstrap HOST=kafka-1.example.invalid USER=<initial-user>
+#
+# Direct usage:
+#   ansible-playbook playbooks/bootstrap.yml \
+#     -i inventory/hosts.yml \
+#     -l kafka-1.example.invalid \
+#     -e "ansible_user=nando" \
+#     --ask-become-pass
+#
+# Re-running bootstrap on an already-bootstrapped host is idempotent.
+
+- name: Bootstrap host — create ansible service user
+  hosts: "{{ target | default('all') }}"
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Ensure ansible primary group exists with fixed GID
+      ansible.builtin.group:
+        name: "{{ svc_user }}"
+        gid: "{{ svc_gid }}"
+        state: present
+
+    - name: Ensure ansible service user exists with fixed UID
+      ansible.builtin.user:
+        name: "{{ svc_user }}"
+        uid: "{{ svc_uid }}"
+        group: "{{ svc_user }}"
+        groups: "{{ svc_supplementary_groups }}"
+        append: true
+        shell: "{{ svc_shell }}"
+        create_home: true
+        system: false
+        state: present
+
+    - name: Ensure .ssh directory exists for ansible user
+      ansible.builtin.file:
+        path: "/home/{{ svc_user }}/.ssh"
+        state: directory
+        owner: "{{ svc_user }}"
+        group: "{{ svc_user }}"
+        mode: "0700"
+
+    - name: Deploy authorised SSH key for ansible user
+      ansible.posix.authorized_key:
+        user: "{{ svc_user }}"
+        state: present
+        key: "{{ svc_public_key }}"
+
+    - name: Grant ansible user passwordless sudo
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ svc_user }}"
+        content: "{{ svc_user }} ALL=(ALL) NOPASSWD:ALL\n"
+        owner: root
+        group: root
+        mode: "0440"

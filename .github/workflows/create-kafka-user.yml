@@ -1,0 +1,35 @@
+name: KAFKA - Create User
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: "Creates a user in Kafka"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  create-user:
+    name: Create Kafka user
+    runs-on: [self-hosted, ansible]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+        working-directory: ansible
+        env:
+          PATH: /home/ansible/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+      - name: Create Kafka user
+        run: ansible-playbook playbooks/create_kafka_user.yml -i inventory/hosts.yml
+        working-directory: ansible
+        env:
+          PATH: /home/ansible/.local/bin:/usr/local/bin:/usr/bin:/bin
+          KAFKA_USER_NAME: ${{ inputs.username }}
+          KAFKA_USER_PASSWORD: ${{ inputs.username }}

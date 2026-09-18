@@ -1,0 +1,55 @@
+---
+# Gate the deploy on Argo CD being fully Ready. Imported by site.yml in a dedicated play that
+# runs AFTER workers have joined — every Argo CD component is a Deployment and only schedules
+# once at least one worker node exists (the control plane carries the NoSchedule taint).
+
+# Each kubectl wait attempt runs for up to 30s; we retry 20 times with a 30s delay between
+# attempts, so the total budget is roughly 10 minutes. The first few attempts may return rc=1
+# because the target pods do not exist yet; that is expected and gets retried.
+
+- name: Wait for Argo CD server to be Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl wait
+      --for=condition=Ready
+      --timeout=30s
+      -n {{ argocd_namespace }}
+      pod -l app.kubernetes.io/name=argocd-server
+  register: argocd_server_ready
+  until: argocd_server_ready.rc == 0
+  retries: 20
+  delay: 30
+  changed_when: false
+  when: not ansible_check_mode
+
+
+- name: Wait for Argo CD repo server to be Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl wait
+      --for=condition=Ready
+      --timeout=30s
+      -n {{ argocd_namespace }}
+      pod -l app.kubernetes.io/name=argocd-repo-server
+  register: argocd_repo_ready
+  until: argocd_repo_ready.rc == 0
+  retries: 20
+  delay: 30
+  changed_when: false
+  when: not ansible_check_mode
+
+
+- name: Wait for Argo CD application controller to be Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl wait
+      --for=condition=Ready
+      --timeout=30s
+      -n {{ argocd_namespace }}
+      pod -l app.kubernetes.io/name=argocd-application-controller
+  register: argocd_app_controller_ready
+  until: argocd_app_controller_ready.rc == 0
+  retries: 20
+  delay: 30
+  changed_when: false
+  when: not ansible_check_mode

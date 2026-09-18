@@ -1,0 +1,27 @@
+# avoid shebang here — sourced by .bashrc
+
+alias ls='ls --color=auto'
+alias ll='ls -l'
+alias la='ls -lA'
+alias lt='ls -ltr --time-style=long-iso'
+alias lm='ls -l --block-size=M | sed "s, \([0-9]\+\)M , \1 MiB ,"'
+alias li="ls -l --time-style=long-iso | grep -v total | awk '{printf s\"%s %2s %-8s %-8s %9.1f KiB %s %s %s %s\n\", \$1,\$2,\$3,\$4,\$5/1024,\$6,\$7,\$8,\$9}'"
+
+alias rm='rm -i'
+declare -f cp >/dev/null 2>&1 || alias cp >/dev/null 2>&1 || alias cp='cp -idpv'
+declare -f mv >/dev/null 2>&1 || alias mv >/dev/null 2>&1 || alias mv='mv -iv'
+
+alias ssh='ssh -o StrictHostKeyChecking=no'
+alias please='sudo'
+alias newsudo='sudo -i'
+
+alias py=python3
+
+# Git shortcuts
+alias cade='git fetch'
+alias mete='git commit'
+alias nova='git checkout -b'
+alias puxa='git pull'
+alias qual='git branch'
+alias sobe='git push'
+alias status='git status'

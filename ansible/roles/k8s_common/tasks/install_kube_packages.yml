@@ -1,0 +1,68 @@
+---
+# Install kubelet, kubeadm, and kubectl from the upstream Kubernetes apt repository and pin them
+# at the installed version, so unattended upgrades cannot bump the control plane mid-flight.
+# Docs: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+# Packages needed to fetch and trust the Kubernetes repository in the next steps.
+- name: Install apt signing key dependencies for Kubernetes
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gpg
+    state: present
+    update_cache: true
+
+
+- name: Download Kubernetes repository key
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+    dest: /tmp/kubernetes-release.key
+    mode: "0644"
+
+
+# Convert the ASCII-armored key into the binary keyring file that apt requires.
+- name: Create Kubernetes apt keyring
+  ansible.builtin.command:
+    cmd: >
+      gpg --dearmor
+      -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      /tmp/kubernetes-release.key
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+
+- name: Add Kubernetes apt repository
+  ansible.builtin.deb822_repository:
+    name: kubernetes
+    types: [deb]
+    uris: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/"
+    suites: "/"
+    signed_by: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    state: present
+
+
+# update_cache must run here even though the previous tasks already updated apt: the Kubernetes
+# repo was added in the meantime, and without a fresh refresh apt will report kubelet as
+# 'Unable to locate package' and fail.
+- name: Install kubelet kubeadm and kubectl
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: true
+
+
+# Pin the three packages so apt upgrades (including unattended-upgrades) leave them alone.
+# Cluster upgrades must be done deliberately via kubeadm, not via apt.
+- name: Hold Kubernetes packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl

@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish Kafka UI to the LAN
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=KUBECONFIG=/etc/kubernetes/admin.conf
+ExecStart=/usr/bin/kubectl -n kafka-ui port-forward service/kafka-ui 8081:80 --address {{ kafka_ui_port_forward_address }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+---
+# Make a fresh worker join command available on the control plane. The k8s_worker role reads
+# /root/join-command via delegate_to during its own play.
+#
+# A new token is minted on every run because kubeadm tokens expire after 24h — caching one
+# would break later joins on a long-lived cluster. Workers that are already joined are not
+# re-joined; their kubeadm join task is gated by /etc/kubernetes/kubelet.conf in k8s_worker.
+# Expect this file to report 'changed' on every run: the token rotates each time.
+
+- name: Generate join command for worker nodes
+  ansible.builtin.command:
+    cmd: kubeadm token create --print-join-command
+  register: join_command
+  changed_when: false
+  when: not ansible_check_mode
+
+
+- name: Save join command to file for worker nodes
+  ansible.builtin.copy:
+    content: "{{ join_command.stdout_lines[0] }}"
+    dest: /root/join-command
+    mode: "0600"
+  when: not ansible_check_mode

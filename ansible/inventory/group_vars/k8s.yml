@@ -1,0 +1,61 @@
+---
+kubernetes_version: "v1.36"
+
+pod_cidr: "10.244.0.0/16"
+
+# Firewall ports required for intra-cluster Kubernetes traffic.
+# Opened only to firewall_lan_subnet by the firewall role.
+firewall_k8s_lan_ports:
+  - { port: "3000", proto: "tcp", comment: "Grafana (LAN only)" }
+  - { port: "8081", proto: "tcp", comment: "Kafka UI (LAN only)" }
+  - { port: "10250", proto: "tcp", comment: "kubelet API" }
+  - { port: "4240", proto: "tcp", comment: "Cilium health" }
+  - { port: "4244", proto: "tcp", comment: "Hubble server" }
+  - { port: "4245", proto: "tcp", comment: "Hubble relay" }
+  - { port: "12000", proto: "tcp", comment: "Hubble UI (kubectl port-forward access from LAN)" }
+  - { port: "8080", proto: "tcp", comment: "Argo CD UI (kubectl port-forward access from LAN)" }
+  - { port: "8472", proto: "udp", comment: "Cilium VXLAN overlay" }
+  - { port: "30000:32767", proto: "tcp", comment: "NodePort services" }
+  - { port: "6443", proto: "tcp", comment: "kube-apiserver" }
+  - { port: "2379:2380", proto: "tcp", comment: "etcd" }
+
+
+# Firewall ports that receive traffic originated from the pod network
+# (source IP is a pod IP, not a node IP). hubble-relay connects to the
+# hubble-peer Service, which Cilium translates to <node-ip>:4244; the
+# packet's source stays the relay pod IP (no SNAT), so it must be allowed
+# from the pod CIDR rather than the LAN subnet.
+firewall_k8s_pod_subnet: "{{ pod_cidr }}"
+firewall_k8s_pod_ports:
+  - { port: "10250", proto: "tcp", comment: "kubelet API (Prometheus pod to node)" }
+  - { port: "4244", proto: "tcp", comment: "Hubble peer (relay pod to node)" }
+  - { port: "3260", proto: "tcp", comment: "Longhorn iSCSI target (pod to node)" }
+
+# Longhorn host preparation is applied only to the longhorn_storage inventory group.
+# Terraform attaches a dedicated scsi1 disk to those worker VMs.
+longhorn_storage_device: /dev/sdb
+longhorn_storage_path: /var/lib/longhorn
+longhorn_storage_filesystem: ext4
+longhorn_storage_minimum_size_gib: 100
+longhorn_storage_minimum_free_gib: 45
+
+# ArgoCD GitOps bootstrap.
+# argocd_gitops_ssh_key is read from the ARGOCD_SSH_KEY environment variable,
+# which is injected by the GitHub Actions deploy workflow from a GitHub Secret.
+# For local runs: export ARGOCD_SSH_KEY="$(cat ~/.ssh/argocd-gitops)" before make apply.
+argocd_gitops_repo_url: "git@github.com:example-org/k8s-platform-kafka.git"
+argocd_gitops_ssh_key: "{{ lookup('ansible.builtin.env', 'ARGOCD_SSH_KEY') }}"
+
+argocd_port_forward_address: "{{ ansible_host }}"
+grafana_port_forward_address: "{{ ansible_host }}"
+kafka_ui_port_forward_address: "{{ ansible_host }}"
+kafka_ui_credentials_path: /etc/kubernetes/kafka-ui-jaas.conf
+kafka_ui_admin_user: kafka-admin
+kafka_ui_admin_password: "{{ lookup('ansible.builtin.env', 'KAFKA_ADMIN_PASSWORD') }}"
+
+# Grafana's administrator Secret is applied directly by Ansible. The password
+# is supplied by the protected deployment environment and is never committed.
+grafana_namespace: monitoring
+grafana_admin_secret_name: grafana-admin-credentials
+grafana_admin_user: admin
+grafana_admin_password: "{{ lookup('ansible.builtin.env', 'GRAFANA_ADMIN_PASSWORD') }}"

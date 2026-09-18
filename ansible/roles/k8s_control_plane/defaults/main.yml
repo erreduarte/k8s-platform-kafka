@@ -1,0 +1,38 @@
+---
+# defaults file for roles/k8s_control_plane
+
+pod_network_cidr: 10.244.0.0/16
+
+helm_version: v3.16.2
+
+cosign_version: v2.6.3
+
+cilium_version: 1.19.4
+cilium_namespace: kube-system
+
+# CoreDNS forwards external DNS requests to these servers instead of reading a
+# resolv.conf that may point back to the cluster DNS Service and create a loop.
+coredns_namespace: kube-system
+coredns_upstream_dns: [8.8.8.8, 8.8.4.4]
+
+gateway_api_version: v1.2.0
+# Use 'standard' for HTTPRoute/GRPCRoute. Switch to 'experimental' if TLSRoute or other alpha
+# resources are needed.
+gateway_api_channel: experimental
+
+# Argo CD release tag. The install bundle is fetched from
+# https://raw.githubusercontent.com/argoproj/argo-cd/<argocd_version>/manifests/install.yaml
+# Pinning to a tag (instead of the floating 'stable' ref) keeps the deploy reproducible, as
+# recommended by the upstream docs.
+argocd_version: v3.2.0
+argocd_namespace: argocd
+
+# GitOps bootstrap — repository credential and root Application.
+# argocd_gitops_repo_url: override in inventory/group_vars/k8s.yml.
+# argocd_gitops_ssh_key:  must be set to an ansible-vault encrypted string.
+#                         No default: a missing value triggers an explicit assert failure.
+argocd_gitops_repo_url: ""
+argocd_gitops_ssh_key: ""
+argocd_gitops_app_name: root
+argocd_gitops_app_path: gitops/applications
+argocd_gitops_target_revision: main

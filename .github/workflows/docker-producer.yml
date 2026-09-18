@@ -1,0 +1,77 @@
+name: Docker producer image
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "kafka/kafka_tools/producer/**"
+      - ".github/workflows/docker-producer.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "kafka/kafka_tools/producer/**"
+      - ".github/workflows/docker-producer.yml"
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-btcusdt-producer
+
+jobs:
+  build:
+    name: Build producer image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: kafka
+          file: kafka/kafka_tools/producer/btcusdt@trade/Dockerfile
+          push: false
+          tags: ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  publish:
+    name: Publish producer image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v6
+        with:
+          context: kafka
+          file: kafka/kafka_tools/producer/btcusdt@trade/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_NAME }}:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

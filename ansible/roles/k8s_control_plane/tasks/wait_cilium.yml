@@ -1,0 +1,55 @@
+---
+# Gate the deploy on Cilium being fully Ready. Imported by site.yml in a dedicated play that
+# runs AFTER workers have joined — hubble-relay and hubble-ui run as Deployments and only
+# schedule once at least one worker node exists (the control plane carries the NoSchedule taint).
+#
+# Each kubectl wait attempt runs for up to 30s; we retry 20 times with a 30s delay between
+# attempts, so the total budget is roughly 10 minutes. The first few attempts may return rc=1
+# because the target pods do not exist yet; that is expected and gets retried.
+
+- name: Wait for Cilium agent pods to be Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl wait
+      --for=condition=Ready
+      --timeout=30s
+      -n {{ cilium_namespace }}
+      pod -l k8s-app=cilium
+  register: cilium_agent_ready
+  until: cilium_agent_ready.rc == 0
+  retries: 20
+  delay: 30
+  changed_when: false
+  when: not ansible_check_mode
+
+
+- name: Wait for Cilium operator to be Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl wait
+      --for=condition=Ready
+      --timeout=30s
+      -n {{ cilium_namespace }}
+      pod -l io.cilium/app=operator
+  register: cilium_operator_ready
+  until: cilium_operator_ready.rc == 0
+  retries: 20
+  delay: 30
+  changed_when: false
+  when: not ansible_check_mode
+
+
+- name: Wait for Hubble Relay to be Ready
+  ansible.builtin.command:
+    cmd: >-
+      kubectl wait
+      --for=condition=Ready
+      --timeout=30s
+      -n {{ cilium_namespace }}
+      pod -l k8s-app=hubble-relay
+  register: hubble_relay_ready
+  until: hubble_relay_ready.rc == 0
+  retries: 20
+  delay: 30
+  changed_when: false
+  when: not ansible_check_mode

@@ -1,0 +1,35 @@
+---
+- name: Ensure managed groups exist
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    gid: "{{ item.gid }}"
+    state: present
+  loop: "{{ managed_groups | default([]) }}"
+
+- name: Ensure managed users exist
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    uid: "{{ item.uid }}"
+    group: "{{ item.group }}"
+    groups: "{{ item.supplementary_groups | default([]) }}"
+    append: true
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    create_home: true
+    state: present
+  loop: "{{ managed_users | default([]) }}"
+
+- name: Deploy authorised SSH keys for managed users
+  ansible.posix.authorized_key:
+    user: "{{ item.0.name }}"
+    state: present
+    key: "{{ item.1 }}"
+  loop: "{{ managed_users | subelements('ssh_keys', skip_missing=True) }}"
+
+- name: Ensure shell config directory exists in managed user homes
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}/.config/bash"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.group }}"
+    mode: "0755"
+  loop: "{{ managed_users | default([]) }}"

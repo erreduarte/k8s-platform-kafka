@@ -1,0 +1,12 @@
+{
+  "str-key": "str val",
+  "int-key": 0,
+  "bool-key": false,
+
+  "dict-key": {
+    "child": null
+  },
+
+  "list-key": [
+  ]
+}

@@ -1,0 +1,9 @@
+extends: default
+
+ignore: |
+  .git/
+
+rules:
+  document-start: disable
+  new-lines: disable
+  line-length: disable

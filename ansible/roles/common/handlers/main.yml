@@ -1,0 +1,32 @@
+---
+- name: Restart cron
+  ansible.builtin.service:
+    name: cron
+    state: restarted
+
+- name: Restart ssh
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Restart systemd-journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald.service
+    state: restarted
+  listen: Apply journald retention
+
+- name: Vacuum journals by size
+  ansible.builtin.command:
+    argv:
+      - journalctl
+      - --vacuum-size=300M
+  changed_when: true
+  listen: Apply journald retention
+
+- name: Vacuum journals by age
+  ansible.builtin.command:
+    argv:
+      - journalctl
+      - --vacuum-time=7d
+  changed_when: true
+  listen: Apply journald retention

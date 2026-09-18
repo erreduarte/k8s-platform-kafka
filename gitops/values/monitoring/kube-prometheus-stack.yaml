@@ -1,0 +1,53 @@
+# In-cluster observability stack. All UIs remain internal ClusterIP services.
+# Prometheus, Alertmanager, and Grafana state use the non-default Longhorn class.
+# The Ansible component continues to own node_exporter on Kubernetes hosts.
+kubeProxy:
+  enabled: false
+
+nodeExporter:
+  enabled: false
+
+grafana:
+  admin:
+    existingSecret: grafana-admin-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    type: sts
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    podMonitorNamespaceSelector: {}
+    scrapeConfigSelector: {}
+    scrapeConfigNamespaceSelector: {}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi

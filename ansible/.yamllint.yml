@@ -1,0 +1,25 @@
+---
+extends: default
+
+rules:
+  line-length:
+    # URLs and Ansible-templated paths are legitimately long; breaking them
+    # with YAML block scalars (>-) folds newlines into spaces and silently
+    # corrupts URLs at runtime. 200 chars accommodates the longest download
+    # URLs without forcing unsafe line-wrapping.
+    max: 200
+  truthy:
+    # Ansible uses 'yes'/'no' and 'on'/'off' in playbooks
+    allowed-values: ['true', 'false', 'yes', 'no']
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+ignore:
+  - plan/
+  - .github/

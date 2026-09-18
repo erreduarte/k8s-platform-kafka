@@ -1,0 +1,4 @@
+# Managed by Ansible. Changes are overwritten.
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism={{ kafka_sasl_mechanism }}
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="{{ kafka_admin_user }}" password="{{ kafka_admin_password }}";

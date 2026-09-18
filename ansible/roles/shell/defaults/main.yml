@@ -1,0 +1,7 @@
+---
+shell_files_dest: /etc/skel/.config/bash
+shell_bashrc_block_marker: "# {mark} k8s-platform-kafka shell config"
+
+# Entries to ensure exist in /etc/hosts.
+# Each entry: { ip, names } where names is a list of hostnames/aliases.
+hosts_entries: []

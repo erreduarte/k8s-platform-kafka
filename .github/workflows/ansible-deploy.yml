@@ -1,0 +1,62 @@
+name: Ansible Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Limit to a specific host (e.g. controller.example.invalid, workstation-1.example.invalid) - leave empty for all"
+        required: false
+        default: ""
+      tags:
+        description: "Ansible tags to run (e.g. common, shell, monitoring) - leave empty for all"
+        required: false
+        default: ""
+      check:
+        description: "Dry-run mode (--check --diff, no changes applied)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: >-
+      ansible-playbook
+      ${{ inputs.host != '' && format('HOST={0}', inputs.host) || 'all hosts' }}
+      ${{ inputs.tags != '' && format('TAGS={0}', inputs.tags) || '' }}
+      ${{ inputs.check && '(check)' || '' }}
+    runs-on: [self-hosted, ansible]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Scan and trust SSH fingerprints for new inventory hosts
+        run: bash scripts/scan-new-hosts.sh
+        working-directory: ansible
+        env:
+          PATH: /home/ansible/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+        working-directory: ansible
+        env:
+          PATH: /home/ansible/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+      - name: Run ansible-playbook
+        run: |
+          make ${{ inputs.check && 'check' || 'apply' }} \
+            ${{ inputs.host != '' && format('HOST={0}', inputs.host) || '' }} \
+            ${{ inputs.tags != '' && format('TAGS={0}', inputs.tags) || '' }}
+        working-directory: ansible
+        env:
+          PATH: /home/ansible/.local/bin:/usr/local/bin:/usr/bin:/bin
+          PROXMOX_API_TOKEN_SECRET: ${{ secrets.PROXMOX_API_TOKEN_SECRET }}
+          PROXMOX_ANSIBLE_TOKEN_ID: ${{ vars.PROXMOX_ANSIBLE_TOKEN_ID }}
+          PROXMOX_ANSIBLE_API_HOST: ${{ vars.PROXMOX_ANSIBLE_API_HOST }}
+          PROXMOX_ANSIBLE_API_USER: ${{ vars.PROXMOX_ANSIBLE_API_USER }}
+          ARGOCD_SSH_KEY: ${{ secrets.ARGOCD_SSH_KEY }}
+          KAFKA_ADMIN_PASSWORD: ${{ secrets.KAFKA_ADMIN_PASSWORD }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}

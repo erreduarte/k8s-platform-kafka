@@ -1,0 +1,19 @@
+[Unit]
+Description=Apache Kafka
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ kafka_user }}
+Group={{ kafka_group }}
+Environment="KAFKA_OPTS=-javaagent:{{ kafka_jmx_exporter_path }}={{ kafka_metrics_port }}:{{ kafka_jmx_exporter_config_path }}"
+ExecStart={{ kafka_current_path }}/bin/kafka-server-start.sh {{ kafka_config_path }}/server.properties
+ExecStop={{ kafka_current_path }}/bin/kafka-server-stop.sh
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target

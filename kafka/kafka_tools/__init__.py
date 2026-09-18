@@ -1,0 +1,1 @@
+"""Kafka administration and ingestion scripts for the homelab."""

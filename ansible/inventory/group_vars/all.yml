@@ -1,0 +1,65 @@
+---
+# Variables applied to all Kubernetes and Kafka hosts.
+
+timezone: Europe/Lisbon
+
+# Groups that must exist on every host before users are created.
+# The 'users' group (GID 100) is standard on Debian/Ubuntu and usually
+# already present, but is listed here for explicitness and idempotency.
+managed_groups:
+  - name: users
+    gid: 100
+  - name: devs
+    gid: 200
+
+# Operator users to create on every host.
+# Passwords are managed manually on each host (passwd <user>).
+# Ansible creates the account but does not set or modify the password.
+managed_users:
+  []
+
+common_packages:
+  - git
+  - curl
+  - wget
+  - vim
+  - htop
+  - unattended-upgrades
+  - apt-transport-https
+  - ca-certificates
+  - python3
+  - python3-pip
+
+# Entries to ensure exist in /etc/hosts on every managed host.
+hosts_entries:
+  - ip: "192.0.2.1"
+    names: ["router.example.invalid", "router"]
+  - ip: "192.0.2.41"
+    names: ["control-plane-1.example.invalid", "cp01", "argocd.example.invalid", "grafana.example.invalid"]
+  - ip: "192.0.2.51"
+    names: ["worker-1.example.invalid", "w01"]
+  - ip: "192.0.2.52"
+    names: ["worker-2.example.invalid", "w02"]
+  - ip: "192.0.2.57"
+    names: ["kafka-1.example.invalid", "kafka01"]
+  - ip: "192.0.2.58"
+    names: ["kafka-2.example.invalid", "kafka02"]
+  - ip: "192.0.2.59"
+    names: ["kafka-3.example.invalid", "kafka03"]
+
+# Firewall — ports open on every managed Kubernetes/Kafka host.
+firewall_public_ports:
+  - { port: 22, proto: tcp, comment: "SSH" }
+
+firewall_lan_ports: []
+
+# Service user — created once at bootstrap, never modified by site.yml.
+# Keeping these vars in all.yml makes them available to bootstrap.yml
+# without coupling them to the users role.
+svc_user: ansible
+svc_uid: 2026
+svc_gid: 2026
+svc_shell: /bin/bash
+svc_supplementary_groups:
+  - sudo
+svc_public_key: "REPLACE_WITH_YOUR_PUBLIC_KEY"

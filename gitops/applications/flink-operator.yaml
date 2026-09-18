@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flink-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/apache/flink-kubernetes-operator.git
+      targetRevision: release-1.16.0-rc3
+      path: helm/flink-kubernetes-operator
+      helm:
+        releaseName: flink-kubernetes-operator
+        valueFiles:
+          - $values/gitops/values/flink/operator.yaml
+    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+      targetRevision: main
+      ref: values
+    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+      targetRevision: main
+      path: gitops/manifests/flink
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: flink-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ClientSideApplyMigration=false

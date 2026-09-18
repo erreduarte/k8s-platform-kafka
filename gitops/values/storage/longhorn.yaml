@@ -1,0 +1,21 @@
+# Longhorn V1 uses the filesystem mounted by the Ansible component at /var/lib/longhorn.
+# Only Kubernetes nodes labelled node.longhorn.io/create-default-disk=true receive
+# a default Longhorn disk; worker-1.example.invalid and worker-2.example.invalid are the storage workers.
+preUpgradeChecker:
+  jobEnabled: false
+
+persistence:
+  defaultClass: false
+  defaultClassReplicaCount: 2
+  dataEngine: v1
+
+defaultSettings:
+  createDefaultDiskLabeledNodes: true
+  defaultDataPath: /var/lib/longhorn
+  v1DataEngine: true
+  v2DataEngine: false
+  defaultReplicaCount: 2
+  storageMinimalAvailablePercentage: 10
+  replicaSoftAntiAffinity: false
+  allowVolumeCreationWithDegradedAvailability: false
+  replicaAutoBalance: least-effort

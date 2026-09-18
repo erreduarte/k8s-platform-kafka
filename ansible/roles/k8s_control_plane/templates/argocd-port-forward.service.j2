@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish Argo CD UI/API to the LAN
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=KUBECONFIG=/etc/kubernetes/admin.conf
+ExecStart=/usr/bin/kubectl -n argocd port-forward service/argocd-server 8080:443 --address {{ argocd_port_forward_address }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

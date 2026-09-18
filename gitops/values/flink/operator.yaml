@@ -1,0 +1,26 @@
+# Flink Operator configuration. Future Flink jobs run in the dedicated flink namespace.
+watchNamespaces:
+  - flink
+
+replicas: 1
+
+operatorPod:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+webhook:
+  # cert-manager is not installed in this cluster. The operator webhook is
+  # optional, so avoid rendering Issuer and Certificate resources that cannot
+  # be reconciled until cert-manager is deliberately adopted.
+  create: false
+
+# Keep the operator's default configuration enabled so managed jobs receive
+# the chart's supported baseline settings.
+defaultConfiguration:
+  create: true
+  append: true

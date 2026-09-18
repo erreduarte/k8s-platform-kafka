@@ -1,0 +1,90 @@
+---
+- name: Ensure UFW is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Reset UFW to clear stale rules before re-applying desired state
+  community.general.ufw:
+    state: reset
+
+- name: Set UFW default policy — deny incoming, allow outgoing
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Compose effective firewall port lists from base and capability vars
+  ansible.builtin.set_fact:
+    _firewall_public_effective: >-
+      {{ firewall_public_ports
+      }}
+    _firewall_lan_effective: >-
+      {{ firewall_lan_ports
+         + firewall_k8s_lan_ports
+         + firewall_kafka_server_lan_ports
+      }}
+
+- name: Allow public ports from any source
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ _firewall_public_effective }}"
+
+- name: Allow LAN ports from LAN subnet only
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    src: "{{ firewall_lan_subnet }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ _firewall_lan_effective }}"
+
+- name: Allow Kafka controller quorum traffic from broker peers only
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.1.port }}"
+    proto: "{{ item.1.proto }}"
+    src: "{{ item.0 }}"
+    comment: "{{ item.1.comment }}"
+  loop: "{{ firewall_kafka_server_peer_ips | product(firewall_kafka_server_peer_ports) | list }}"
+  when:
+    - firewall_kafka_server_peer_ips | length > 0
+    - firewall_kafka_server_peer_ports | length > 0
+
+- name: Allow pod-network ports from the pod CIDR
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    src: "{{ firewall_k8s_pod_subnet }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ firewall_k8s_pod_ports }}"
+  when: firewall_k8s_pod_subnet | length > 0
+
+- name: Allow routed traffic originating from the pod network
+  community.general.ufw:
+    rule: allow
+    route: true
+    src: "{{ firewall_k8s_pod_subnet }}"
+  when: firewall_k8s_pod_subnet | length > 0
+
+- name: Allow Kafka metrics from Kubernetes node addresses
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.1.port }}"
+    proto: "{{ item.1.proto }}"
+    src: "{{ item.0 }}"
+    comment: "{{ item.1.comment }}"
+  loop: "{{ firewall_kafka_server_metrics_source_ips | product(firewall_kafka_server_metrics_ports) | list }}"
+  when:
+    - firewall_kafka_server_metrics_source_ips | length > 0
+    - firewall_kafka_server_metrics_ports | length > 0
+
+- name: Ensure UFW is enabled and active
+  community.general.ufw:
+    state: enabled

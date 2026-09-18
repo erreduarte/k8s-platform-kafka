@@ -1,0 +1,38 @@
+replicaCount: 1
+
+image:
+  repository: confluentinc/cp-schema-registry
+  tag: "8.1.1"
+  pullPolicy: IfNotPresent
+
+kafka:
+  bootstrapServers: 192.0.2.57:9092,192.0.2.58:9092,192.0.2.59:9092
+  topic: _schemas
+  topicReplicationFactor: 3
+  securityProtocol: SASL_PLAINTEXT
+  saslMechanism: SCRAM-SHA-512
+  credentialsSecretName: schema-registry-kafka-credentials
+  credentialsSecretKey: sasl-jaas-config
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+service:
+  port: 8081
+
+readinessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 12
+
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
