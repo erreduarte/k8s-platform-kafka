@@ -40,6 +40,7 @@ jobs:
           file: kafka/kafka_tools/producer/btcusdt@trade/Dockerfile
           push: false
           tags: ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -74,5 +75,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
             ghcr.io/${{ env.IMAGE_NAME }}:main
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
