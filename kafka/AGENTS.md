@@ -42,7 +42,7 @@
 ## CI backstop
 
 - Authoritative backstop: GitHub Actions via `.github/workflows/ci.yml`.
-- `.github/workflows/docker.yml` builds the BTCUSDT consumer image on pull requests and publishes it to GHCR after a successful push to `main`; `.github/workflows/docker-producer.yml` does the same for the producer image.
+- `.github/workflows/docker-consumer.yml` builds the BTCUSDT consumer image on pull requests and publishes it to GHCR after a successful push to `main`; `.github/workflows/docker-producer.yml` does the same for the producer image.
 - `build` runs `make compile`, `test` runs `make check`, and `quality` runs `make lint`, `make drift`, and `make complexity`.
 - Jenkins is not configured for this repository today.
 - Pull Requests use `.github/pull_request_template.md` and must include validation evidence and post-merge instructions.

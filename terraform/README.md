@@ -29,7 +29,7 @@ change from rebuilding a running VM just to record which template created it.
 | System | What it manages |
 |---|---|
 | Terraform | Proxmox VM hardware, Cloud-Init, static IPs, MAC addresses, and worker data disks |
-| [Ansible](https://github.com/example-org/k8s-platform-kafka/tree/main/ansible) | Guest OS configuration, users, packages, UFW, Kubernetes bootstrap, and Longhorn disk format/mount |
+| [Ansible](https://github.com/erreduarte/k8s-platform-kafka/tree/main/ansible) | Guest OS configuration, users, packages, UFW, Kubernetes bootstrap, and Longhorn disk format/mount |
 | Argo CD | Longhorn and other Kubernetes workloads |
 
 Do not use this repository to manage the Proxmox host, `vmbr0`, `local-lvm`,

@@ -6,13 +6,13 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    - repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
       targetRevision: main
       path: gitops/charts/schema-registry
       helm:
         valueFiles:
           - $values/gitops/values/kafka/schema-registry.yaml
-    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    - repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
       targetRevision: main
       ref: values
   destination:

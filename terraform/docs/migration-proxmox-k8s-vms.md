@@ -7,7 +7,8 @@
 ## Current status
 
 - The R2 lock and recovery check passed.
-- VMIDs `141`, `151`, `152`, and template `999` are in remote Terraform state.
+- VMIDs `141`, `151`, `152`, `157`, `158`, `159`, and templates `997` and `999`
+  are in remote Terraform state.
 - Adoption passed both the refresh-only and normal zero-change plan checks.
 - The configuration keeps declarative import mappings for managed resources.
   They do nothing while the resource is already in state.

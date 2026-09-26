@@ -47,7 +47,8 @@ cluster.
 - Kafka brokers `kafka-1.example.invalid`, `kafka-2.example.invalid`, and `kafka-3.example.invalid` use VMIDs `157`,
 	`158`, and `159`, with address suffixes `57`, `58`, and `59`. Each has 2 vCPU,
 	2 GiB RAM, a 20 GiB root disk, and a 30 GiB `scsi1` Kafka disk on `local-lvm`.
-- Kafka brokers use `virtio-scsi-pci`, rather than `virtio-scsi-single`, so the
+- Kafka brokers use `virtio-scsi-pci`, while the templates and Kubernetes VMs use
+	`virtio-scsi-single`, so the
 	guest consistently detects the 20 GiB `scsi0` operating-system disk as
 	`/dev/sda` and the 30 GiB `scsi1` data disk as `/dev/sdb`.
 - Managed VMs and Longhorn disks use deletion protection. Adoption passed both

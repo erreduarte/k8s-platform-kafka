@@ -93,7 +93,7 @@ actual `/26` LAN; do not reuse it.
 
 1. After completing the readiness gate, take the prescribed remote-state backup
    and review the Terraform import plan. It must adopt only VMID `997`; it must
-   not alter VMIDs `141`, `151`, `152`, `998`, or `999`.
+   not alter VMIDs `141`, `151`, `152`, `157`, `158`, `159`, `998`, or `999`.
 2. Apply only through the manual `apply_terraform_proxmox` workflow on `main`.
 3. Confirm the resulting state protects VMID `997`, which is stopped, marked as
    a template, has `scsi0` at 20 GiB, `ide2` as a Cloud-Init disk on

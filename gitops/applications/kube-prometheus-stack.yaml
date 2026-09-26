@@ -13,7 +13,7 @@ spec:
         releaseName: kube-prometheus-stack
         valueFiles:
           - $values/gitops/values/monitoring/kube-prometheus-stack.yaml
-    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    - repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
       targetRevision: main
       ref: values
   destination:

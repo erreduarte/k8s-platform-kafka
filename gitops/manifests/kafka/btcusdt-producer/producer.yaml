@@ -20,7 +20,7 @@ spec:
         - name: ghcr-pull-secret
       containers:
         - name: btcusdt-producer
-          image: ghcr.io/example-org/k8s-platform-kafka-btcusdt-producer:main
+          image: ghcr.io/erreduarte/k8s-platform-kafka-btcusdt-producer:main
           ports:
             - name: metrics
               containerPort: 8000

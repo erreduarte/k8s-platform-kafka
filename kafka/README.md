@@ -76,8 +76,8 @@ unit-test suite yet.
 
 ## Pull Requests
 
-Pull Requests targeting `main` are validated by GitHub Actions in
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml). The workflow runs
+Pull Requests targeting `main` are validated by GitHub Actions in the root
+workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). The workflow runs
 separate build, test, and quality jobs:
 
 - `build` runs `make compile`.

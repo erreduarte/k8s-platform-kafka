@@ -9,8 +9,7 @@ spec:
   project: default
 
   source:
-    # Replace with the monorepo remote before enabling Argo CD bootstrap.
-    repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
     targetRevision: main
     path: gitops/applications
 
