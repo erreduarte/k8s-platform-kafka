@@ -6,10 +6,10 @@ Date: 2026-09-11
 
 | Source repository | Monorepo path | Policy |
 | --- | --- | --- |
-| `k8s-platform-kafka` | `terraform/` | Public Terraform, docs, validation, and CI configuration. |
-| `k8s-platform-kafka` | `gitops/` | Public GitOps manifests, values, scripts, tests, and docs. |
-| `k8s-platform-kafka` | `kafka/` | Public Kafka/Flink source, packaging, tests/scripts, and docs. |
-| `k8s-platform-kafka` | `ansible/` | Public Kubernetes and Kafka guest configuration. |
+| `homelab-terraform` | `terraform/` | Public Terraform, docs, validation, and CI configuration. |
+| `homelab-platform` | `gitops/` | Public GitOps manifests, values, scripts, tests, and docs. |
+| `homelab-kafka` | `kafka/` | Public Kafka/Flink source, packaging, tests/scripts, and docs. |
+| `ansible-fra` | `ansible/` | Public Kubernetes and Kafka guest configuration. |
 
 ## Ansible inclusions
 

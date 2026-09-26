@@ -43,7 +43,7 @@ longhorn_storage_minimum_free_gib: 45
 # argocd_gitops_ssh_key is read from the ARGOCD_SSH_KEY environment variable,
 # which is injected by the GitHub Actions deploy workflow from a GitHub Secret.
 # For local runs: export ARGOCD_SSH_KEY="$(cat ~/.ssh/argocd-gitops)" before make apply.
-argocd_gitops_repo_url: "git@github.com:example-org/k8s-platform-kafka.git"
+argocd_gitops_repo_url: "git@github.com:erreduarte/k8s-platform-kafka.git"
 argocd_gitops_ssh_key: "{{ lookup('ansible.builtin.env', 'ARGOCD_SSH_KEY') }}"
 
 argocd_port_forward_address: "{{ ansible_host }}"

@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: btcusdt-consumer
     app.kubernetes.io/part-of: flink
 spec:
-  image: ghcr.io/example-org/k8s-platform-kafka-btcusdt-consumer:main
+  image: ghcr.io/erreduarte/k8s-platform-kafka-btcusdt-consumer:main
   imagePullPolicy: IfNotPresent
   flinkVersion: v2_3
   serviceAccount: default

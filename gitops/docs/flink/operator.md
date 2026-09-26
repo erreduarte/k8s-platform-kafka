@@ -16,7 +16,7 @@ operator release and the consumer image version aligned; migrate to a stable
 
 - Kafka remains external to Kubernetes on the three broker VMs.
 - `manifests/flink/btcusdt-consumer.yaml` deploys the BTCUSDT PyFlink consumer.
-- The job image is published to `ghcr.io/example-org/k8s-platform-kafka-btcusdt-consumer`;
+- The job image is published to `ghcr.io/erreduarte/k8s-platform-kafka-btcusdt-consumer`;
   promote immutable commit-SHA tags rather than relying on a moving tag.
 - The GHCR package is private; pods use the externally managed
   `flink/ghcr-pull-secret` image pull Secret.
@@ -33,7 +33,7 @@ operator release and the consumer image version aligned; migrate to a stable
   FlinkDeployment. The producer additionally reads `bootstrapServers` from the
   same Secret.
 - The producer image is published by `k8s-platform-kafka` as
-  `ghcr.io/example-org/k8s-platform-kafka-btcusdt-producer:main` and uses the same Kafka
+  `ghcr.io/erreduarte/k8s-platform-kafka-btcusdt-producer:main` and uses the same Kafka
   credential keys. Its Deployment starts at zero replicas.
 - Longhorn is not used for Flink state.
 - The consumer uses Flink's checkpoint-aware `FileSink` with the native S3
