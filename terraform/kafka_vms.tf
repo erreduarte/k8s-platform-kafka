@@ -1,19 +1,19 @@
 locals {
   kafka_vms = {
     kafka01 = {
-      vm_id        = 1011
+      vm_id        = 157
       name         = "kafka-1.example.invalid"
       ipv4_address = "192.0.2.57/26"
       mac_address  = "02:00:00:00:00:57"
     }
     kafka02 = {
-      vm_id        = 1012
+      vm_id        = 158
       name         = "kafka-2.example.invalid"
       ipv4_address = "192.0.2.58/26"
       mac_address  = "02:00:00:00:00:58"
     }
     kafka03 = {
-      vm_id        = 1013
+      vm_id        = 159
       name         = "kafka-3.example.invalid"
       ipv4_address = "192.0.2.59/26"
       mac_address  = "02:00:00:00:00:59"

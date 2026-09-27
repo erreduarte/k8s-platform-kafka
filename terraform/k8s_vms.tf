@@ -1,7 +1,7 @@
 locals {
   proxmox_node_name            = "hypervisor.example.invalid"
   vm_datastore_id              = "local-lvm"
-  ubuntu_server_template_vm_id = 1999
+  ubuntu_server_template_vm_id = 999
   cloud_init = {
     interface    = "ide2"
     ipv4_gateway = "192.0.2.1"
@@ -13,7 +13,7 @@ locals {
 
   k8s_vms = {
     cp01 = {
-      vm_id         = 1001
+      vm_id         = 141
       name          = "control-plane-1.example.invalid"
       ipv4_address  = "192.0.2.41/26"
       mac_address   = "02:00:00:00:10:01"
@@ -23,7 +23,7 @@ locals {
       data_disk     = null
     }
     w01 = {
-      vm_id         = 1002
+      vm_id         = 151
       name          = "worker-1.example.invalid"
       ipv4_address  = "192.0.2.51/26"
       mac_address   = "02:00:00:00:10:02"
@@ -36,7 +36,7 @@ locals {
       }
     }
     w02 = {
-      vm_id         = 1003
+      vm_id         = 152
       name          = "worker-2.example.invalid"
       ipv4_address  = "192.0.2.52/26"
       mac_address   = "02:00:00:00:10:03"

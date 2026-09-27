@@ -1,8 +1,8 @@
 locals {
-  debian_kafka_template_vm_id = 1997
+  debian_kafka_template_vm_id = 997
 }
 
-# VMID 998 is a manually maintained Debian 13 template. VMID 1997 is prepared
+# VMID 998 is a manually maintained Debian 13 template. VMID 997 is prepared
 # from a full clone of it before Terraform adopts and protects the result.
 resource "proxmox_virtual_environment_vm" "debian_kafka_template" {
   name      = "debian13-kafka.template"

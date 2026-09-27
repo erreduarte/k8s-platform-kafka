@@ -1,8 +1,8 @@
 # k8s-platform-kafka project context
 
-The canonical GitHub owner is `example-org` (`maintainer@example.invalid`). Repository
+The canonical GitHub owner is `erreduarte` (`renan.ineu@gmail.com`). Repository
 URLs, GitHub Actions integrations, container image references, and GitOps source
-URLs must use `example-org/k8s-platform-kafka`.
+URLs use `erreduarte/k8s-platform-kafka`.
 
 This monorepo consolidates the four homelab source repositories without
 changing their ownership boundaries. Terraform provisions Proxmox hardware;

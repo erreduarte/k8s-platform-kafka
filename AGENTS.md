@@ -2,8 +2,8 @@
 
 ## Repository identity
 
-This repository is owned and administered by GitHub user `example-org`
-(`maintainer@example.invalid`). Use `example-org/k8s-platform-kafka` for repository URLs,
+This repository is owned and administered by GitHub user `erreduarte`
+(`renan.ineu@gmail.com`). Use `erreduarte/k8s-platform-kafka` for repository URLs,
 GitHub Actions references, container image names, and GitOps source URLs.
 
 ## Project context
@@ -53,6 +53,11 @@ GitHub Actions references, container image names, and GitOps source URLs.
 - `.github/workflows/apply_terraform_proxmox.yml` is the only manual Terraform apply path from `main`.
 - `.github/workflows/docker-consumer.yml` and `.github/workflows/docker-producer.yml` preserve the Kafka image build/publish flows.
 - Jenkins is not configured for this repository today.
+
+The regular validation jobs run on GitHub-hosted runners. The Terraform
+Proxmox plan, Terraform apply, Ansible deployment, and Kafka-user workflows
+remain on the trusted `[self-hosted, ansible]` runner because they access the
+private homelab and protected credentials.
 
 ## Active sensors
 

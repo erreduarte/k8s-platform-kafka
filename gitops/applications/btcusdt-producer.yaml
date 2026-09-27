@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
     targetRevision: main
     path: gitops/manifests/kafka/btcusdt-producer
   destination:

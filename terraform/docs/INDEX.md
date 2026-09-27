@@ -17,4 +17,4 @@
 |---|---|
 | [architecture.md](architecture.md) | Terraform, Ansible, and Argo CD responsibilities, managed VMs, and change flow |
 | [migration-proxmox-k8s-vms.md](migration-proxmox-k8s-vms.md) | State adoption, backups, recovery, and zero-change plan rules |
-| [kafka-template.md](kafka-template.md) | How template VMID 1997 is prepared, checked, and managed by Terraform |
+| [kafka-template.md](kafka-template.md) | How template VMID 997 is prepared, checked, and managed by Terraform |

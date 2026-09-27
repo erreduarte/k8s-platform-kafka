@@ -13,10 +13,10 @@ spec:
         releaseName: flink-kubernetes-operator
         valueFiles:
           - $values/gitops/values/flink/operator.yaml
-    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    - repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
       targetRevision: main
       ref: values
-    - repoURL: git@github.com:example-org/k8s-platform-kafka.git
+    - repoURL: git@github.com:erreduarte/k8s-platform-kafka.git
       targetRevision: main
       path: gitops/manifests/flink
   destination:
