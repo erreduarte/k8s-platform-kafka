@@ -27,7 +27,7 @@
 
 ## Repo notes
 
-- `kafka_tools/admin.py` and `kafka_tools/producer/btcusdt@trade/producer.py` execute work at module import time; avoid importing them from tests or tooling that expects side-effect-free modules.
+- `kafka_tools/admin.py` and the producer support modules perform setup at module import time; avoid importing them from tests or tooling that expects side-effect-free modules. Run the producer as a script.
 - `kafka_tools/consumer/btcusdt@trade/consumer.py` is a PyFlink job. Its Docker image is built from `kafka_tools/consumer/btcusdt@trade/Dockerfile` with the repository root as the build context.
 - The consumer image uses Flink 2.3.0, Python 3.12.7, and the Kafka connector JARs tracked under `kafka_tools/jars/`. Local development dependencies still pin `apache-flink==2.2.1`.
 - The admin script uses `KAFKA_ADMIN_USERNAME` and `KAFKA_ADMIN_PASSWORD`; the producer and consumer use `KAFKA_USERNAME` and `KAFKA_PASSWORD`. The consumer also requires `KAFKA_BTCUSDT_TOPIC`.
@@ -37,7 +37,7 @@
 ## Current runtime notes
 
 - The consumer image uses the Flink 2.3.0 base image, Python 3.12.7, and the Kafka connector JARs tracked under `kafka_tools/jars/`.
-- The producer image starts automatically and uses `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_USERNAME`, and `KAFKA_PASSWORD`; the consumer also uses `KAFKA_BTCUSDT_TOPIC`.
+- The producer image starts automatically and uses `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_USERNAME`, `KAFKA_PASSWORD`, and `SCHEMA_REGISTRY_URL`; the consumer also uses `KAFKA_BTCUSDT_TOPIC`.
 
 ## CI backstop
 

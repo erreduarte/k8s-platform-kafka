@@ -41,3 +41,5 @@ spec:
                 secretKeyRef:
                   name: kafka-flink-credentials
                   key: password
+            - name: SCHEMA_REGISTRY_URL
+              value: http://schema-registry-schema-registry.schema-registry.svc.cluster.local:8081

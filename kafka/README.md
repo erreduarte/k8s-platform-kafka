@@ -16,11 +16,13 @@ docs/        Architecture and agent-facing documentation
 | File | Purpose |
 |---|---|
 | `kafka_tools/admin.py` | Connects with Kafka admin credentials and lists, creates, or deletes topics. |
-| `kafka_tools/producer/btcusdt@trade/producer.py` | Connects to the Binance trade WebSocket and publishes raw messages to the `binance-btcusdt-trade` topic. |
+The BTCUSDT producer image is built from
+`kafka_tools/producer/btcusdt@trade/Dockerfile` using `kafka/` as the Docker
+build context. Pull requests build the image without publishing it.
 | `kafka_tools/consumer/btcusdt@trade/consumer.py` | Consumes the Binance trade topic with PyFlink. |
 
 The consumer image is defined by
-`kafka_tools/consumer/btcusdt@trade/Dockerfile`. It is based on Flink 2.3.0,
+docker build -f kafka_tools/producer/btcusdt@trade/Dockerfile -t k8s-platform-kafka-btcusdt-producer kafka
 installs Python 3.12.7 and `apache-flink==2.3.0`, adds the Kafka connector and
 native S3 filesystem plugin, and copies the consumer job into the Flink image.
 
@@ -30,17 +32,18 @@ native S3 filesystem plugin, and copies the consumer job into the Flink image.
 - `KAFKA_ADMIN_USERNAME` and `KAFKA_ADMIN_PASSWORD` — credentials used by the topic administration script.
 - `KAFKA_USERNAME` — username used by the PyFlink consumer.
 - `KAFKA_PASSWORD` — password used by the PyFlink consumer.
+- `SCHEMA_REGISTRY_URL` — Schema Registry URL used by the Binance producer; defaults to `http://127.0.0.1:8081`.
 - `KAFKA_BTCUSDT_TOPIC` — topic consumed by the PyFlink job.
 - `R2_ENDPOINT` — required by the consumer; the current image uses the R2 endpoint baked into its Flink configuration.
 - `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` — R2 credentials.
 - `R2_PREFIX` — object key prefix; defaults to `btcusdt`.
-- `R2_FLUSH_INTERVAL_SECONDS` — maximum time before the FileSink rolls a file;
-	defaults to `60`.
-
+The BTCUSDT consumer image is built from
+`kafka_tools/consumer/btcusdt@trade/Dockerfile` using `kafka/` as the Docker
+build context. Pull requests build the image without publishing it.
 The producer and consumer use `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_USERNAME`, and
 `KAFKA_PASSWORD`. The consumer also uses `KAFKA_BTCUSDT_TOPIC`. Set
 `KAFKA_BOOTSTRAP_SERVERS` to the comma-separated broker list. Keep all
-credential values in the runtime environment; never commit them. The producer
+docker build -f kafka_tools/consumer/btcusdt@trade/Dockerfile -t k8s-platform-kafka-btcusdt-consumer kafka
 image starts the producer automatically. The production consumer image does not
 install or load `python-dotenv` and must not contain a
 `.env` file. The consumer uses one shared R2 credential set for the fixed
@@ -60,8 +63,8 @@ uv run python kafka_tools/admin.py
 uv run python kafka_tools/producer/btcusdt@trade/producer.py
 ```
 
-The scripts currently initialize clients and start work at import time. Run
-them as scripts rather than importing them from tests or tooling.
+The scripts and producer support modules perform setup at import time. Run the
+entry-point scripts directly rather than importing them from tests or tooling.
 
 ## Validation
 
@@ -104,7 +107,10 @@ docker build -f kafka_tools/producer/btcusdt@trade/Dockerfile -t k8s-platform-ka
 ```
 
 The image starts `/app/producer.py` automatically. Provide
-`KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_USERNAME`, and `KAFKA_PASSWORD` at runtime.
+`KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_USERNAME`, `KAFKA_PASSWORD`, and
+`SCHEMA_REGISTRY_URL` at runtime. The producer validates each Binance trade
+record and serializes it through Schema Registry using the local `Trade` Avro
+schema.
 
 ## Consumer image
 
