@@ -9,8 +9,6 @@ from kafka import KafkaProducer
 from prometheus_client import start_http_server
 from prometheus_metrics import ProducerMetrics
 
-
-
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
 KAFKA_USERNAME = os.getenv("KAFKA_USERNAME")
 KAFKA_PASSWORD = os.getenv("KAFKA_PASSWORD")
