@@ -5,10 +5,11 @@ import time
 
 import websocket
 from avro_serialization import create_avro_serializer, to_trade_record
+from kafka import KafkaProducer
 from prometheus_client import start_http_server
 from prometheus_metrics import ProducerMetrics
 
-from kafka import KafkaProducer
+
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
 KAFKA_USERNAME = os.getenv("KAFKA_USERNAME")
